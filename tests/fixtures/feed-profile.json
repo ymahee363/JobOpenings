@@ -1,0 +1,75 @@
+[
+  {
+    "title": "Senior Product Manager",
+    "jobId": "100000000001",
+    "currency": "INR",
+    "footerPlaceholderLabel": "Few Hours Ago",
+    "companyName": "Acme Fintech",
+    "tagsAndSkills": "Product management,Roadmap,SQL, Agile ",
+    "placeholders": [
+      { "label": "5-9 Yrs", "type": "experience" },
+      { "label": "25-35 Lacs PA", "type": "salary" },
+      { "label": "Bengaluru", "type": "location" }
+    ],
+    "jdURL": "/job-listings-senior-product-manager-acme-fintech-bengaluru-5-to-9-years-100000000001",
+    "createdDate": 1792414876000,
+    "mode": "jp",
+    "minimumExperience": "5",
+    "maximumExperience": "9",
+    "salaryDetail": { "hideSalary": false, "minimumSalary": 2500000, "maximumSalary": 3500000, "currency": "INR" },
+    "companyApplyJob": false,
+    "showMultipleApply": false
+  },
+  {
+    "title": "AI Engineer : Manager",
+    "jobId": "100000000002",
+    "footerPlaceholderLabel": "1 Day Ago",
+    "companyName": "Globex",
+    "tagsAndSkills": "Python,LLM",
+    "placeholders": [
+      { "label": "8-12 Yrs", "type": "experience" },
+      { "label": "Not disclosed", "type": "salary" },
+      { "label": "Hyderabad, Pune", "type": "location" }
+    ],
+    "jdURL": "/job-listings-ai-engineer-manager-globex-hyderabad-8-to-12-years-100000000002",
+    "createdDate": 1792405651795,
+    "mode": "crawled",
+    "minimumExperience": "8",
+    "maximumExperience": "12",
+    "salaryDetail": { "hideSalary": true, "minimumSalary": 0, "maximumSalary": 0 },
+    "companyApplyJob": true,
+    "companyApplyUrl": "https://careers.globex.example/apply/123",
+    "applyRedirectUrl": "https://globex.wd5.myworkdayjobs.example/job/123"
+  },
+  {
+    "title": "Growth Lead",
+    "jobId": "100000000003",
+    "footerPlaceholderLabel": "30+ Days Ago",
+    "companyName": "Initech",
+    "tagsAndSkills": "",
+    "placeholders": [],
+    "jdURL": "https://evil.example/phish",
+    "companyApplyJob": true,
+    "companyApplyUrl": "javascript:alert(1)",
+    "applyRedirectUrl": null
+  },
+  {
+    "jobId": "100000000004",
+    "companyName": "Broken Co",
+    "footerPlaceholderLabel": "2 Days Ago"
+  },
+  {
+    "title": "Senior Product Manager (duplicate)",
+    "jobId": "100000000001",
+    "companyName": "Acme Fintech",
+    "footerPlaceholderLabel": "Few Hours Ago",
+    "companyApplyJob": false
+  },
+  {
+    "title": "Data Analyst",
+    "jobId": 100000000005,
+    "footerPlaceholderLabel": "3 Days Ago",
+    "companyName": "Umbrella",
+    "placeholders": [{ "label": "Remote", "type": "location" }]
+  }
+]
