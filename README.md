@@ -1,6 +1,8 @@
 # Naukri Fast-Apply Board
 
-A personal Chrome extension that lists the openings Naukri recommends to you, **newest first**, split into
+A personal Chrome extension that lists the openings Naukri recommends to you, plus a saved
+[product manager search](https://www.naukri.com/product-manager-jobs?k=%22product%20manager%22&nignbevent_src=jobsearchDeskGNB&jobAge=30&functionAreaIdGid=10&experience=6&cityTypeGid=97),
+**newest first**, split into
 **Easy Apply** (apply on Naukri) and **Company Site** (apply on the employer's site) tabs. Everything stays in
 your browser. See [PRD.md](PRD.md) for the product spec.
 
@@ -27,7 +29,7 @@ After pulling changes, run `npm run build` and click the reload icon on the exte
 | Apply (Company Site tab) | **Open site**: opens the employer's page in a new tab; confirm with **Yes** or **Mark applied** |
 | Dismiss | **Dismiss** or `d`, with 5-second Undo (`u`) |
 | Move / search / tabs | `j` / `k`, `/`, `1`–`4` |
-| Refresh | **Refresh** opens Naukri in a background tab for a few seconds. At most once every 15 minutes |
+| Refresh | **Refresh** opens Naukri's recommended jobs, then the saved search sorted by date, in a background tab. Further search pages load only while the previous page had new jobs (up to 10). At most once every 15 minutes |
 
 Jobs also arrive whenever you browse Naukri yourself; that never counts against the limit.
 
@@ -35,7 +37,7 @@ Jobs also arrive whenever you browse Naukri yourself; that never counts against 
 
 | Part | File | Job |
 | --- | --- | --- |
-| Hook | `src/content/main-hook.ts` | Runs in the page; copies `jobapi/v*/search/recom-jobs` responses the page already loads |
+| Hook | `src/content/main-hook.ts` | Runs in the page; copies `jobapi/v*/search/recom-jobs` and `jobapi/v3/search?...` (job search) responses the page already loads |
 | Collector | `src/content/collector.ts` | Relays hook captures, reads Naukri's cached feeds (`srp_simjobs_reco_wdgt_*` in localStorage), reports logged-out or captcha pages, watches job pages for "Applied" |
 | Service worker | `src/background/service-worker.ts` | Validates and parses captures, stores them, runs refreshes and safety pauses |
 | Parser | `src/shared/parse.ts` | zod-validated mapping from Naukri's job fields to ours |

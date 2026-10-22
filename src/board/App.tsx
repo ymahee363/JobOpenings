@@ -266,7 +266,7 @@ export function App() {
           : jobs.length === 0 ? (
             <div className="empty">
               <h2>No jobs yet</h2>
-              <p>Open your Naukri recommended jobs once while logged in, or press Refresh.</p>
+              <p>Open your Naukri recommended jobs or the saved search once while logged in, or press Refresh.</p>
               <button type="button" className="btn primary" onClick={() => openTab(RECOMMENDED_JOBS_URL)}>Open Naukri</button>
             </div>
           ) : visible.length === 0 ? (

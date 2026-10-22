@@ -2,6 +2,18 @@ export const NAUKRI_ORIGIN = 'https://www.naukri.com';
 export const RECOMMENDED_JOBS_URL = `${NAUKRI_ORIGIN}/mnjuser/recommendedjobs`;
 export const NAUKRI_LOGIN_URL = `${NAUKRI_ORIGIN}/nlogin/login`;
 
+/** The saved job search refresh also loads: "product manager", last 30 days, 6 yrs experience, newest first (sort=f). */
+const SEARCH_PATH = '/product-manager-jobs';
+const SEARCH_QUERY =
+  'k=%22product%20manager%22&nignbevent_src=jobsearchDeskGNB&jobAge=30&functionAreaIdGid=10&experience=6&cityTypeGid=97&sort=f';
+export const SEARCH_JOBS_URL = `${NAUKRI_ORIGIN}${SEARCH_PATH}?${SEARCH_QUERY}`;
+
+/** Page N of the saved search; Naukri puts the page number in the path (/product-manager-jobs-2). */
+export function searchPageUrl(page: number): string {
+  const suffix = page > 1 ? `-${Math.floor(page)}` : '';
+  return `${NAUKRI_ORIGIN}${SEARCH_PATH}${suffix}?${SEARCH_QUERY}`;
+}
+
 function parse(raw: string | null | undefined): URL | null {
   if (!raw || typeof raw !== 'string') return null;
   try {

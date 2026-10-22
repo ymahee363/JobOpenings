@@ -37,7 +37,7 @@ Why it matters: early applicants get seen first on Naukri, so hours of delay red
 | --- | --- |
 | Auto-apply or bulk apply | Account risk, and a bad fit ruins applications. Every apply stays a human click |
 | Filling external company forms | Every career site is different. Too costly for the payoff |
-| Sources beyond homepage feeds (search, alerts) | Keeps v1 small. Planned for v2 (milestone M5) |
+| Sources beyond homepage feeds and the one saved search (other searches, alerts) | Keeps v1 small. Planned for v2 (milestone M5) |
 | Multi-user, hosted or mobile app | Personal tool. Hosting would mean storing my Naukri session on a server |
 
 ## 4. Success metrics
@@ -165,6 +165,7 @@ flowchart LR
 **Assumptions, checked in M0 on 2026-10-21 against the live page:**
 
 - A-1 **Confirmed.** Feeds come from `POST /jobapi/v2/search/recom-jobs`. Naukri also caches three of them (profile, apply, preference) in `localStorage` under `srp_simjobs_reco_wdgt_<feed>_<hash>`. The full feed list lives at `/mnjuser/recommendedjobs` (tabs: Profile, Applies, Preferences, You might like), so refresh loads that page rather than the homepage.
+- A-1b **Confirmed 2026-10-23.** Search pages call `GET /jobapi/v3/search?...&pageNo=N` and return `jobDetails` with the same job fields as recom-jobs. `sort=f` in the page URL sorts by date; page N lives at `/product-manager-jobs-N?...`. Refresh now also loads the saved product manager search (feed `search`).
 - A-2 **Confirmed, better than expected.** `jobId` is stable and `createdDate` is an absolute epoch-ms timestamp. Relative labels (`footerPlaceholderLabel`) are only a fallback.
 - A-3 **Confirmed in feed data.** `companyApplyJob` (boolean) gives the apply type; `applyRedirectUrl` / `companyApplyUrl` give the external link. All 79 cached live jobs validated, all were classified, and every company-site job had an https link. FR-11's job-page lookups are therefore not needed in v1.
 - Still to verify with the installed extension: the "You might like" feed (54 jobs) is not cached, so it must come through the network hook. Check that the board's count matches Naukri's tab totals.
@@ -223,7 +224,7 @@ Estimates assume one developer working with Claude Code.
 | --- | --- | --- | --- |
 | D-1 | **Decided 2026-10-21: option A (extension).** Discovery showed the data is readable from the page itself | Me | Done |
 | Q-1 | Does Naukri's Easy Apply sometimes show a questionnaire, and does FR-7 detect success after it? | Me (M0) | End of M0 |
-| Q-2 | Add saved searches as sources in v1? Currently v2 | Me | After M2 |
+| Q-2 | Add saved searches as sources in v1? **Decided 2026-10-23:** one saved search (product manager, 30 days, 6 yrs) in v1; more in v2 | Me | Done |
 
 ## 14. Change log
 

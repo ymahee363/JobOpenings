@@ -33,7 +33,7 @@ export function StatsPanel({ stats }: { stats: Stats }) {
           <dd>{stats.byType.easy_apply} / {stats.byType.company_site} / {stats.byType.unknown}</dd></div>
       </dl>
       <p className="hint">Targets: 2x your baseline applications per week, and a median under 24 hours.</p>
-      <h3 className="hint">Jobs per Naukri feed (compare with the tab counts on Naukri's recommended jobs page)</h3>
+      <h3 className="hint">Jobs per Naukri feed ("search" is the saved product manager search; the rest match the tabs on Naukri's recommended jobs page)</h3>
       <dl className="stats">
         {Object.entries(stats.byFeed).sort(([a], [b]) => a.localeCompare(b)).map(([feed, n]) => (
           <div key={feed}><dt>{feed}</dt><dd>{n}</dd></div>

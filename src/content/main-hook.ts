@@ -1,6 +1,6 @@
 /**
  * Runs in the page's own JS world (MAIN) at document_start on naukri.com.
- * It wraps fetch and XHR so we can read the recom-jobs feed responses the page already requests.
+ * It wraps fetch and XHR so we can read the recom-jobs and search responses the page already requests.
  * It never sends requests of its own and never changes what the page receives.
  */
 import { CAPTURE_URL_RE, HOOK_TAG, MAX_CAPTURE_CHARS } from '../shared/constants';

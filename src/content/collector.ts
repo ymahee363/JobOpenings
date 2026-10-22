@@ -5,7 +5,7 @@
  *  3. reports logged-out or captcha pages, and
  *  4. on job pages, reports when Naukri shows the job as applied.
  */
-import { FEED_CACHE_KEY_RE, HOOK_TAG } from '../shared/constants';
+import { FEED_CACHE_KEY_RE, HOOK_TAG, SEARCH_API_RE } from '../shared/constants';
 import type { CollectorMessage } from '../shared/messages';
 import { jobIdFromJobPath } from '../shared/url';
 
@@ -25,7 +25,8 @@ window.addEventListener('message', (event: MessageEvent) => {
   if (event.source !== window || event.origin !== window.location.origin) return;
   const data = event.data as { tag?: unknown; url?: unknown; body?: unknown } | null;
   if (!data || data.tag !== HOOK_TAG || typeof data.url !== 'string') return;
-  send({ type: 'capture', source: 'network', feed: null, url: data.url.slice(0, 2048), payload: data.body });
+  const feed = SEARCH_API_RE.test(data.url) ? 'search' : null;
+  send({ type: 'capture', source: 'network', feed, url: data.url.slice(0, 2048), payload: data.body });
 });
 
 // 2. Read feeds Naukri cached in localStorage.

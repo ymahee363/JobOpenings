@@ -4,7 +4,7 @@ import { BoardMessage, CollectorMessage, DB_CHANGED, type RefreshResponse } from
 import { parseCapture } from '../shared/parse';
 import { canAppLoad, clampRefreshMinutes, pause, recordAppLoad, REFRESH_TIMEOUT_MS, resume } from '../shared/safety';
 import { load, save, update } from '../shared/store';
-import { RECOMMENDED_JOBS_URL } from '../shared/url';
+import { RECOMMENDED_JOBS_URL, searchPageUrl } from '../shared/url';
 
 const db = getDb();
 const BOARD_URL = chrome.runtime.getURL('board.html');
@@ -75,12 +75,38 @@ async function maybeNotify(count: number): Promise<void> {
 
 // ---------- refresh (FR-2 / FR-10) ----------
 
+/** Search results come 20 per page; the saved search has about 150 jobs. */
+const MAX_SEARCH_PAGES = 10;
+/** Pause between page loads within one refresh, so it reads like someone paging through. */
+const PAGE_GAP_MS = 3_000;
+
 interface PendingRefresh {
-  resolve: (outcome: 'done' | 'logged_out' | 'captcha' | 'timeout') => void;
+  resolve: (outcome: LoadOutcome) => void;
   added: number;
 }
 const pendingRefresh = new Map<number, PendingRefresh>();
 let refreshInFlight: Promise<RefreshResponse> | null = null;
+
+type LoadOutcome = 'done' | 'logged_out' | 'captcha' | 'timeout';
+
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** Open one Naukri page in a background tab, wait for its captures, then close it. */
+async function loadAndCapture(url: string): Promise<{ result: LoadOutcome; added: number }> {
+  const tab = await chrome.tabs.create({ url, active: false });
+  const tabId = tab.id;
+  if (tabId === undefined) return { result: 'timeout', added: 0 };
+
+  const entry: PendingRefresh = { resolve: () => undefined, added: 0 };
+  const result = await new Promise<LoadOutcome>((resolve) => {
+    entry.resolve = resolve;
+    pendingRefresh.set(tabId, entry);
+    setTimeout(() => resolve('timeout'), REFRESH_TIMEOUT_MS);
+  });
+  pendingRefresh.delete(tabId);
+  await chrome.tabs.remove(tabId).catch(() => undefined);
+  return { result, added: entry.added };
+}
 
 async function refresh(trigger: 'manual' | 'scheduled'): Promise<RefreshResponse> {
   refreshInFlight ??= doRefresh(trigger).finally(() => {
@@ -99,25 +125,24 @@ async function doRefresh(trigger: 'manual' | 'scheduled'): Promise<RefreshRespon
   }
   await save('safety', recordAppLoad(safety, now));
 
-  const tab = await chrome.tabs.create({ url: RECOMMENDED_JOBS_URL, active: false });
-  const tabId = tab.id;
-  if (tabId === undefined) return { ok: false, reason: 'Could not open a tab' };
-
-  const entry: PendingRefresh = { resolve: () => undefined, added: 0 };
-  const outcome = await new Promise<'done' | 'logged_out' | 'captcha' | 'timeout'>((resolve) => {
-    entry.resolve = resolve;
-    pendingRefresh.set(tabId, entry);
-    setTimeout(() => resolve('timeout'), REFRESH_TIMEOUT_MS);
-  });
-  pendingRefresh.delete(tabId);
-  await chrome.tabs.remove(tabId).catch(() => undefined);
+  // Recommended feeds first, then the saved search newest first. Later search pages load only while
+  // the previous page still turned up new jobs, so a routine refresh usually stops after page 1.
+  let added = 0;
+  let outcome = await loadAndCapture(RECOMMENDED_JOBS_URL);
+  added += outcome.added;
+  for (let page = 1; outcome.result === 'done' && page <= MAX_SEARCH_PAGES; page++) {
+    await delay(PAGE_GAP_MS);
+    outcome = await loadAndCapture(searchPageUrl(page));
+    added += outcome.added;
+    if (outcome.added === 0) break;
+  }
   await update('health', (h) => ({ ...h, lastRefreshAt: Date.now() }));
 
-  switch (outcome) {
+  switch (outcome.result) {
     case 'done':
-      await log(db, 'info', `${trigger} refresh finished, ${entry.added} new`);
+      await log(db, 'info', `${trigger} refresh finished, ${added} new`);
       broadcastChanged();
-      return { ok: true, added: entry.added };
+      return { ok: true, added };
     case 'logged_out':
       return { ok: false, reason: 'Logged out of Naukri. Log in, then refresh.' };
     case 'captcha':

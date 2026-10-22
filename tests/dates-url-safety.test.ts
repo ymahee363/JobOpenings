@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { formatAge, parseRelativeLabel, resolvePostedAt } from '../src/shared/dates';
 import { canAppLoad, clampRefreshMinutes, DEFAULT_SAFETY, pause, recordAppLoad, resume } from '../src/shared/safety';
-import { jobIdFromJobPath, naukriJobUrl, RECOMMENDED_JOBS_URL, safeExternalUrl } from '../src/shared/url';
+import { CAPTURE_URL_RE, SEARCH_API_RE } from '../src/shared/constants';
+import { jobIdFromJobPath, naukriJobUrl, RECOMMENDED_JOBS_URL, safeExternalUrl, searchPageUrl } from '../src/shared/url';
 
 const NOW = 1792500000000;
 const DAY = 86_400_000;
@@ -59,6 +60,26 @@ describe('url safety', () => {
   it('reads job IDs from job page paths', () => {
     expect(jobIdFromJobPath('/job-listings-pm-acme-bengaluru-2-to-6-years-100826018354')).toBe('100826018354');
     expect(jobIdFromJobPath('/mnjuser/homepage')).toBeNull();
+  });
+
+  it('builds saved-search page URLs, newest first', () => {
+    const query = 'k=%22product%20manager%22&nignbevent_src=jobsearchDeskGNB&jobAge=30&functionAreaIdGid=10&experience=6&cityTypeGid=97&sort=f';
+    expect(searchPageUrl(1)).toBe(`https://www.naukri.com/product-manager-jobs?${query}`);
+    expect(searchPageUrl(3)).toBe(`https://www.naukri.com/product-manager-jobs-3?${query}`);
+  });
+});
+
+describe('capture URLs', () => {
+  it('captures recom-jobs feeds and search results only', () => {
+    expect(CAPTURE_URL_RE.test('/jobapi/v2/search/recom-jobs')).toBe(true);
+    expect(CAPTURE_URL_RE.test('https://www.naukri.com/jobapi/v3/search?noOfResults=20&pageNo=1')).toBe(true);
+    expect(CAPTURE_URL_RE.test('/jobapi/v3/search/suggestor')).toBe(false);
+    expect(CAPTURE_URL_RE.test('/jobapi/v4/job/123')).toBe(false);
+  });
+
+  it('tags search results separately', () => {
+    expect(SEARCH_API_RE.test('/jobapi/v3/search?pageNo=2')).toBe(true);
+    expect(SEARCH_API_RE.test('/jobapi/v2/search/recom-jobs')).toBe(false);
   });
 });
 
