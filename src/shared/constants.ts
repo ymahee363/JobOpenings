@@ -12,6 +12,15 @@ export const MAX_CAPTURE_CHARS = 5_000_000;
 /** Feed responses the hook captures: the recom-jobs feeds and the job-search results (`/jobapi/v3/search?...`). */
 export const CAPTURE_URL_RE = /\/jobapi\/v\d+\/search(?:\/recom-jobs|\?)/;
 
+/** Indeed GraphQL calls; the hook forwards only responses that carry job cards. */
+export const INDEED_CAPTURE_URL_RE = /^https:\/\/apis\.indeed\.com\/graphql/;
+
+/** Instahyre job-search results (`/api/v1/job_search?...`), requested when you run a search or saved search. */
+export const INSTAHYRE_CAPTURE_URL_RE = /\/api\/v1\/job_search(?:\?|$)/;
+
+/** Wellfound GraphQL calls; the hook forwards only responses that list jobs (`highlightedJobListings`). */
+export const WELLFOUND_CAPTURE_URL_RE = /^(?:https:\/\/wellfound\.com)?\/graphql(?:\?|$)/;
+
 /** Job-search results; their jobs are stored under the `search` feed. */
 export const SEARCH_API_RE = /\/jobapi\/v\d+\/search\?/;
 

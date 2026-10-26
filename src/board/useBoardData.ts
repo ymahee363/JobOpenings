@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getDb } from '../db/db';
-import { DEFAULT_FILTERS, type Filters } from '../shared/board';
+import { DEFAULT_FILTERS, DEFAULT_HIDDEN_TITLE_WORDS, type Filters } from '../shared/board';
 import { DB_CHANGED } from '../shared/messages';
 import { DEFAULT_SAFETY, type SafetyState } from '../shared/safety';
 import { load, save, type PendingApply } from '../shared/store';
@@ -14,6 +14,7 @@ export interface BoardData {
   safety: SafetyState;
   settings: Settings;
   filters: Filters;
+  hiddenTitleWords: string[];
   pendingApply: PendingApply | null;
   /** Previous visit time; jobs first seen after it are "new". */
   lastVisitAt: number | null;
@@ -32,6 +33,7 @@ export function useBoardData() {
     safety: DEFAULT_SAFETY,
     settings: DEFAULT_SETTINGS,
     filters: DEFAULT_FILTERS,
+    hiddenTitleWords: DEFAULT_HIDDEN_TITLE_WORDS,
     pendingApply: null,
     lastVisitAt: null,
     now: Date.now(),
@@ -44,10 +46,10 @@ export function useBoardData() {
   }, [db]);
 
   const reloadStore = useCallback(async () => {
-    const [health, safety, settings, filters, pendingApply] = await Promise.all([
-      load('health'), load('safety'), load('settings'), load('filters'), load('pendingApply'),
+    const [health, safety, settings, filters, pendingApply, hiddenTitleWords] = await Promise.all([
+      load('health'), load('safety'), load('settings'), load('filters'), load('pendingApply'), load('hiddenTitleWords'),
     ]);
-    if (mounted.current) setData((d) => ({ ...d, health, safety, settings, filters, pendingApply }));
+    if (mounted.current) setData((d) => ({ ...d, health, safety, settings, filters, pendingApply, hiddenTitleWords }));
   }, []);
 
   useEffect(() => {

@@ -1,0 +1,35 @@
+{
+  "_help": [
+    "Default links the Refresh button (and auto-refresh) loads, in order. The easy way to add links is the board's Sources panel; once you edit the list there, this file is no longer used (Reset to sources.json defaults brings it back). After editing this file, run `npm run build` and reload the extension.",
+    "Links must be on www.naukri.com, in.indeed.com, www.instahyre.com or wellfound.com.",
+    "Instahyre ignores the filters in a search link and shows recommended jobs, so an Instahyre entry opens the opportunities page and clicks the saved search named in \"savedSearch\" (as listed under Saved Searches on Instahyre; case does not matter). Only the first page of results is read.",
+    "Wellfound's https://wellfound.com/jobs opens with the filters you last set there (role, location, job type), so set them on Wellfound. Only the first page of results is read.",
+    "maxPages: how many result pages of a search to load (default 1). Later pages load only while the previous page found new jobs.",
+    "Search links are sorted newest first automatically (Naukri sort=f, Indeed sort=date) unless the link already sets a sort.",
+    "Set \"enabled\": false to skip a link without deleting it."
+  ],
+  "sources": [
+    {
+      "name": "Naukri recommended jobs",
+      "url": "https://www.naukri.com/mnjuser/recommendedjobs"
+    },
+    {
+      "name": "Naukri: product manager, 6 yrs, last 30 days",
+      "url": "https://www.naukri.com/product-manager-jobs?k=%22product%20manager%22&nignbevent_src=jobsearchDeskGNB&jobAge=30&functionAreaIdGid=10&experience=6&cityTypeGid=97",
+      "maxPages": 10
+    },
+    {
+      "name": "Indeed jobs for you",
+      "url": "https://in.indeed.com/?from=gnav-homepage--homepage-frontend"
+    },
+    {
+      "name": "Instahyre: PM Blr WFH saved search",
+      "url": "https://www.instahyre.com/candidate/opportunities/?matching=true",
+      "savedSearch": "PM BLR WFH"
+    },
+    {
+      "name": "Wellfound jobs (your saved filters)",
+      "url": "https://wellfound.com/jobs"
+    }
+  ]
+}

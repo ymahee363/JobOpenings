@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { Job, JobStatus, LogEntry, ParsedJob, Status } from '../shared/types';
-import { naukriJobUrl, safeExternalUrl } from '../shared/url';
+import { safeExternalUrl, safeJobPageUrl } from '../shared/url';
 import type { BoardDB } from './db';
 
 const DAY = 86_400_000;
@@ -51,6 +51,21 @@ export async function setStatus(db: BoardDB, jobId: string, status: Status, now:
   });
 }
 
+/**
+ * Mark jobs the site says you already applied to. Only jobs still new or seen change: a status you set
+ * yourself (applied or dismissed) wins. Returns how many changed.
+ */
+export async function markAppliedFromSite(db: BoardDB, jobIds: string[], now: number): Promise<number> {
+  return db.transaction('rw', db.statuses, async () => {
+    const existing = await db.statuses.bulkGet(jobIds);
+    const rows: JobStatus[] = jobIds
+      .filter((_, i) => !existing[i] || existing[i]!.status === 'new' || existing[i]!.status === 'seen')
+      .map((jobId) => ({ jobId, status: 'applied', statusAt: now }));
+    await db.statuses.bulkPut(rows);
+    return rows.length;
+  });
+}
+
 export async function restoreStatus(db: BoardDB, jobId: string, prev: JobStatus | null): Promise<void> {
   if (prev) await db.statuses.put(prev);
   else await db.statuses.delete(jobId);
@@ -83,6 +98,8 @@ const BackupSchema = z.object({
   exportedAt: z.number(),
   jobs: z.array(z.object({
     jobId: z.string().min(1),
+    // Backups made before Indeed support have no site; they are all Naukri jobs.
+    site: z.enum(['naukri', 'indeed', 'instahyre', 'wellfound']).default('naukri'),
     title: z.string(),
     company: z.string(),
     location: z.string(),
@@ -100,7 +117,7 @@ const BackupSchema = z.object({
     lastSeenAt: z.number(),
     sourceFeeds: z.array(z.string()),
     applyType: z.enum(['easy_apply', 'company_site', 'unknown']),
-    naukriUrl: z.string().refine((u) => naukriJobUrl(u) === u, 'naukriUrl must be an https naukri.com link'),
+    naukriUrl: z.string().refine((u) => safeJobPageUrl(u) === u, 'naukriUrl must be an https naukri.com, indeed.com, instahyre.com or wellfound.com link'),
     externalUrl: z.string().nullable().refine((u) => u === null || safeExternalUrl(u) === u, 'externalUrl must be https'),
     titleCompanyKey: z.string(),
   })),

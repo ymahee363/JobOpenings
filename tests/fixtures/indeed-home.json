@@ -1,0 +1,52 @@
+{
+  "apiSource": "RJP",
+  "appName": "homepage",
+  "loggedIn": true,
+  "results": [
+    {
+      "jobkey": "a10763a21af31e90",
+      "title": "product manager",
+      "displayTitle": "Senior Product Manager",
+      "company": "Skyleaf Consultants ",
+      "formattedLocation": "Mumbai, Maharashtra",
+      "createDate": 1791900000000,
+      "pubDate": 1792368000000,
+      "formattedRelativeTime": "1 day ago",
+      "indeedApplyEnabled": true,
+      "indeedApplyable": true,
+      "thirdPartyApplyUrl": "https://in.indeed.com/applystart?jk=a10763a21af31e90",
+      "viewJobLink": "/viewjob?jk=a10763a21af31e90&from=hp",
+      "extractedSalary": { "max": 3000000, "min": 2000000, "type": "YEARLY" },
+      "salarySnippet": { "currency": "INR", "text": "₹20,00,000 - ₹30,00,000 a year" },
+      "expired": false,
+      "appliedOrGreater": false,
+      "sponsored": false
+    },
+    {
+      "jobkey": "B20763A21AF31E91",
+      "title": "Product Owner",
+      "company": "Globex",
+      "formattedLocation": "Bengaluru, Karnataka",
+      "createDate": 1792300000000,
+      "formattedRelativeTime": "2 days ago",
+      "indeedApplyable": false,
+      "thirdPartyApplyUrl": "https://in.indeed.com/applystart?jk=b20763a21af31e91",
+      "extractedSalary": { "max": 200000, "min": 150000, "type": "MONTHLY" },
+      "salarySnippet": { "text": "₹1,50,000 - ₹2,00,000 a month" },
+      "expired": false,
+      "appliedOrGreater": true
+    },
+    {
+      "jobkey": "c30763a21af31e92",
+      "title": "Group Product Manager",
+      "company": "Initech",
+      "formattedLocation": "Remote",
+      "formattedRelativeTime": "30+ days ago",
+      "thirdPartyApplyUrl": "javascript:alert(1)",
+      "extractedSalary": { "min": 500, "type": "HOURLY" }
+    },
+    { "jobkey": "d40763a21af31e93", "title": "Closed role", "company": "Umbrella", "expired": true },
+    { "jobkey": "not-a-jobkey", "title": "Broken", "company": "Nope" },
+    { "jobkey": "a10763a21af31e90", "title": "product manager", "company": "Skyleaf Consultants" }
+  ]
+}

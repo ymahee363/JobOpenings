@@ -1,6 +1,6 @@
 // Bundles the extension into dist/. Usage: node scripts/build.mjs [--watch]
 import * as esbuild from 'esbuild';
-import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { iconPng } from './icon.mjs';
 
 const watch = process.argv.includes('--watch');
@@ -11,6 +11,14 @@ mkdirSync(outdir, { recursive: true });
 cpSync('src/manifest.json', `${outdir}/manifest.json`);
 cpSync('src/board/board.html', `${outdir}/board.html`);
 cpSync('src/board/board.css', `${outdir}/board.css`);
+// The links refresh loads. Fail the build on a JSON syntax error; the tests check the entries themselves.
+try {
+  JSON.parse(readFileSync('sources.json', 'utf8'));
+} catch (e) {
+  console.error(`sources.json is not valid JSON: ${e.message}`);
+  process.exit(1);
+}
+cpSync('sources.json', `${outdir}/sources.json`);
 for (const size of [16, 48, 128]) writeFileSync(`${outdir}/icon-${size}.png`, iconPng(size));
 
 const common = {

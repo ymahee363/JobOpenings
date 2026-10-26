@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getDb } from '../db/db';
 import { restoreStatus, setStatus } from '../db/repo';
-import { buildRows, computeStats, rowsForTab, type BoardRow, type BoardTab, type Filters } from '../shared/board';
+import {
+  buildRows, computeStats, countHiddenByTitle, rowsForTab, type BoardRow, type BoardTab, type Filters,
+} from '../shared/board';
 import { formatAge } from '../shared/dates';
 import type { RefreshResponse } from '../shared/messages';
 import { save } from '../shared/store';
 import type { JobStatus, Status } from '../shared/types';
-import { NAUKRI_LOGIN_URL, RECOMMENDED_JOBS_URL } from '../shared/url';
+import { INDEED_HOME_URL, NAUKRI_LOGIN_URL, RECOMMENDED_JOBS_URL } from '../shared/url';
 import { FilterBar } from './FilterBar';
 import { JobRow } from './JobRow';
 import { DataPanel, LogPanel, SettingsPanel, StatsPanel } from './Panels';
+import { SourcesPanel } from './SourcesPanel';
 import { useBoardData } from './useBoardData';
 
 const TABS: Array<{ id: BoardTab; label: string }> = [
@@ -19,7 +22,7 @@ const TABS: Array<{ id: BoardTab; label: string }> = [
   { id: 'applied', label: 'Applied' },
 ];
 
-type Panel = 'none' | 'stats' | 'settings' | 'data' | 'log';
+type Panel = 'none' | 'stats' | 'settings' | 'sources' | 'data' | 'log';
 interface Toast { text: string; undo?: { jobId: string; prev: JobStatus | null } }
 
 const UNDO_MS = 5_000;
@@ -35,6 +38,13 @@ function readTab(): BoardTab {
   return 'easy_apply';
 }
 
+/** "14:05" today, "Thu 14:05" on another day. */
+function shortTime(t: number, now: number): string {
+  const d = new Date(t);
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return d.toDateString() === new Date(now).toDateString() ? time : `${d.toLocaleDateString([], { weekday: 'short' })} ${time}`;
+}
+
 function openTab(url: string): void {
   // chrome.tabs.create gives the new page no reference back to this one.
   chrome.tabs.create({ url, active: true }).catch(() => undefined);
@@ -43,7 +53,7 @@ function openTab(url: string): void {
 export function App() {
   const db = getDb();
   const { data, reloadDb, markAllSeen } = useBoardData();
-  const { jobs, statuses, health, safety, settings, pendingApply, lastVisitAt, now } = data;
+  const { jobs, statuses, health, safety, settings, pendingApply, lastVisitAt, now, hiddenTitleWords } = data;
 
   // Filters are edited locally (instant typing) and persisted in the background.
   const [filters, setFiltersState] = useState<Filters>(data.filters);
@@ -56,6 +66,11 @@ export function App() {
   }, [data.loaded, data.filters]);
 
   const [tab, setTabState] = useState<BoardTab>(readTab);
+
+  // Opening the board refreshes Indeed, Instahyre and Wellfound in the background (if enabled, each at most once an hour).
+  useEffect(() => {
+    chrome.runtime.sendMessage({ type: 'board-opened' }).catch(() => undefined);
+  }, []);
   const [selected, setSelected] = useState(0);
   const [panel, setPanel] = useState<Panel>('none');
   const [toast, setToast] = useState<Toast | null>(null);
@@ -71,15 +86,15 @@ export function App() {
   };
 
   const rows = useMemo(() => buildRows(jobs, statuses, lastVisitAt, now), [jobs, statuses, lastVisitAt, now]);
-  const visible = useMemo(() => rowsForTab(rows, tab, filters, now), [rows, tab, filters, now]);
+  const visible = useMemo(() => rowsForTab(rows, tab, filters, now, hiddenTitleWords), [rows, tab, filters, now, hiddenTitleWords]);
   const counts = useMemo(() => {
     const out = {} as Record<BoardTab, { total: number; fresh: number }>;
     for (const t of TABS) {
-      const r = rowsForTab(rows, t.id, filters, now);
+      const r = rowsForTab(rows, t.id, filters, now, hiddenTitleWords);
       out[t.id] = { total: r.length, fresh: r.filter((x) => x.isNew).length };
     }
     return out;
-  }, [rows, filters, now]);
+  }, [rows, filters, now, hiddenTitleWords]);
   const stats = useMemo(() => computeStats(rows, now), [rows, now]);
 
   useEffect(() => {
@@ -151,7 +166,10 @@ export function App() {
     setRefreshing(true);
     try {
       const res = (await chrome.runtime.sendMessage({ type: 'refresh' })) as RefreshResponse;
-      if (res.ok) showToast({ text: res.added ? `${res.added} new job${res.added === 1 ? '' : 's'}` : 'Up to date' });
+      if (res.ok) {
+        const text = res.added ? `${res.added} new job${res.added === 1 ? '' : 's'}` : 'Up to date';
+        showToast({ text: res.note ? `${text}. Skipped: ${res.note}` : text });
+      }
       else showToast({ text: res.retryAt ? `${res.reason}. Next at ${new Date(res.retryAt).toLocaleTimeString()}` : res.reason });
     } catch (e) {
       showToast({ text: `Refresh failed: ${String(e)}` });
@@ -193,11 +211,13 @@ export function App() {
     if (row) document.getElementById(`job-${row.jobId}`)?.scrollIntoView({ block: 'nearest' });
   }, [selected, visible]);
 
+  const halted = safety.haltedAt !== null;
   const paused = safety.pausedUntil !== null && safety.pausedUntil > now;
-  const nextRefreshAt = safety.lastAppLoadAt ? safety.lastAppLoadAt + 15 * 60_000 : null;
-  const statusText = health.pageState === 'logged_out' ? 'Logged out'
-    : health.parser === 'needs_update' ? 'Parser needs update'
-      : paused ? 'Paused' : refreshing ? 'Refreshing…' : 'OK';
+  const statusText = halted ? 'Stopped'
+    : health.pageState === 'logged_out' ? 'Logged out'
+      : health.parser === 'needs_update' ? 'Parser needs update'
+        : paused ? 'Paused' : refreshing ? 'Refreshing…' : 'OK';
+  const resumeRefresh = () => chrome.runtime.sendMessage({ type: 'resume' }).catch(() => undefined);
 
   return (
     <div className="app">
@@ -208,12 +228,21 @@ export function App() {
         </div>
         <div className="header-meta">
           <span>Last refreshed {health.lastCaptureAt ? formatAge(health.lastCaptureAt, now) : 'never'}</span>
-          <button type="button" className="btn primary" onClick={refresh}
-            disabled={refreshing || paused || (nextRefreshAt !== null && nextRefreshAt > now)}
-            title={nextRefreshAt && nextRefreshAt > now ? `Next refresh available at ${new Date(nextRefreshAt).toLocaleTimeString()}` : 'Refresh from Naukri'}>
+          {settings.autoRefresh && !halted && health.nextAutoRefreshAt !== null && health.nextAutoRefreshAt > now && (
+            <span title="Your interval plus a random delay, different every time">
+              Naukri next {shortTime(health.nextAutoRefreshAt, now)}
+            </span>
+          )}
+          {settings.autoRefresh && !halted && health.nextIndeedRefreshAt !== null && health.nextIndeedRefreshAt > now && (
+            <span title="Indeed, Instahyre and Wellfound: once a day at a random time between 9:00 and 22:00">
+              Others next {shortTime(health.nextIndeedRefreshAt, now)}
+            </span>
+          )}
+          <button type="button" className="btn primary" onClick={refresh} disabled={refreshing || halted}
+            title="Refresh every site now (each site still keeps its own minimum gap)">
             {refreshing ? 'Refreshing…' : 'Refresh'}
           </button>
-          {(['stats', 'settings', 'data', 'log'] as const).map((p) => (
+          {(['stats', 'settings', 'sources', 'data', 'log'] as const).map((p) => (
             <button key={p} type="button" className={`btn ghost ${panel === p ? 'on' : ''}`} aria-expanded={panel === p}
               onClick={() => setPanel(panel === p ? 'none' : p)}>
               {p[0]!.toUpperCase() + p.slice(1)}
@@ -222,6 +251,13 @@ export function App() {
         </div>
       </header>
 
+      {halted && (
+        <div className="banner warn" role="alert">
+          <strong>All refreshes stopped:</strong> {safety.haltReason} ({new Date(safety.haltedAt!).toLocaleString()}).
+          Nothing will open any of the job sites until you resume. If the site asks, solve the captcha there first.
+          {' '}<button type="button" className="link" onClick={resumeRefresh}>Resume</button>
+        </div>
+      )}
       {health.pageState === 'logged_out' && (
         <div className="banner warn" role="alert">
           Logged out of Naukri. <button type="button" className="link" onClick={() => openTab(NAUKRI_LOGIN_URL)}>Log in</button>, then refresh.
@@ -229,21 +265,23 @@ export function App() {
       )}
       {health.parser === 'needs_update' && (
         <div className="banner warn" role="alert">
-          Naukri changed its data format and the parser needs an update. Your saved jobs are kept. See the activity log.
+          A job site changed its data format and the parser needs an update. Your saved jobs are kept. See the activity log.
         </div>
       )}
       {paused && (
         <div className="banner" role="status">
           App refresh paused until {new Date(safety.pausedUntil!).toLocaleTimeString()} ({safety.pauseReason}).
-          Jobs still arrive whenever you open Naukri yourself.
-          {safety.pauseReason !== 'Naukri showed a captcha' && (
-            <> <button type="button" className="link" onClick={() => chrome.runtime.sendMessage({ type: 'resume' })}>Resume now</button></>
-          )}
+          Jobs still arrive whenever you open the job sites yourself.
+          {' '}<button type="button" className="link" onClick={resumeRefresh}>Resume now</button>
         </div>
       )}
 
       {panel === 'stats' && <StatsPanel stats={stats} />}
-      {panel === 'settings' && <SettingsPanel settings={settings} />}
+      {panel === 'settings' && (
+        <SettingsPanel settings={settings} hiddenTitleWords={hiddenTitleWords}
+          hiddenCount={countHiddenByTitle(rows, hiddenTitleWords)} />
+      )}
+      {panel === 'sources' && <SourcesPanel />}
       {panel === 'data' && <DataPanel rows={rows} onChanged={reloadDb} />}
       {panel === 'log' && <LogPanel />}
 
@@ -266,8 +304,10 @@ export function App() {
           : jobs.length === 0 ? (
             <div className="empty">
               <h2>No jobs yet</h2>
-              <p>Open your Naukri recommended jobs or the saved search once while logged in, or press Refresh.</p>
+              <p>Open your Naukri recommended jobs or the Indeed homepage once while logged in, or press Refresh.</p>
               <button type="button" className="btn primary" onClick={() => openTab(RECOMMENDED_JOBS_URL)}>Open Naukri</button>
+              {' '}
+              <button type="button" className="btn" onClick={() => openTab(INDEED_HOME_URL)}>Open Indeed</button>
             </div>
           ) : visible.length === 0 ? (
             <p className="empty">Nothing here with these filters.</p>

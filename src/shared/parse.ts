@@ -84,6 +84,7 @@ export function normalizeJob(raw: RawJob, feed: string, now: number): ParsedJob 
   const company = raw.companyName.trim();
   return {
     jobId: raw.jobId,
+    site: 'naukri',
     title,
     company,
     location: placeholder(raw, 'location'),

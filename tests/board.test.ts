@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  appliedCsv, buildRows, computeStats, DEFAULT_FILTERS, matchesFilters, rowsForTab, type BoardRow,
+  appliedCsv, buildRows, cleanHideWord, computeStats, countHiddenByTitle, DEFAULT_FILTERS, DEFAULT_HIDDEN_TITLE_WORDS,
+  matchesFilters, rowsForTab, titleHasHiddenWord, type BoardRow,
 } from '../src/shared/board';
 import type { Job, JobStatus } from '../src/shared/types';
 
@@ -9,7 +10,7 @@ const DAY = 86_400_000;
 
 function job(over: Partial<Job> & { jobId: string }): Job {
   return {
-    title: 'Product Manager', company: 'Acme', location: 'Bengaluru', experience: '3-6 Yrs',
+    site: 'naukri', title: 'Product Manager', company: 'Acme', location: 'Bengaluru', experience: '3-6 Yrs',
     expMin: 3, expMax: 6, salary: 'Not disclosed', salaryMinLpa: null, salaryMaxLpa: null, skills: ['SQL'],
     postedAt: NOW - DAY, postedLabel: '1 Day Ago', postedApprox: false, firstSeenAt: NOW - DAY, lastSeenAt: NOW,
     sourceFeeds: ['profile'], applyType: 'easy_apply', naukriUrl: 'https://www.naukri.com/job-listings-x-1',
@@ -69,6 +70,13 @@ describe('matchesFilters', () => {
     expect(matchesFilters(row({ jobId: '1', postedAt: NOW - 8 * DAY }), f, NOW)).toBe(false);
     expect(matchesFilters(row({ jobId: '1', postedAt: NOW - 8 * DAY }), { ...f, postedWithinDays: null }, NOW)).toBe(true);
   });
+  it('filters by site', () => {
+    const indeed = row({ jobId: 'indeed-a10763a21af31e90', site: 'indeed' });
+    expect(matchesFilters(indeed, f, NOW)).toBe(true);
+    expect(matchesFilters(indeed, { ...f, site: 'indeed' }, NOW)).toBe(true);
+    expect(matchesFilters(indeed, { ...f, site: 'naukri' }, NOW)).toBe(false);
+    expect(matchesFilters(row({ jobId: '1' }), { ...f, site: 'indeed' }, NOW)).toBe(false);
+  });
   it('applies experience, location and keywords', () => {
     const r = row({ jobId: '1' });
     expect(matchesFilters(r, { ...f, expYears: 2 }, NOW)).toBe(false);
@@ -107,6 +115,7 @@ describe('stats and CSV', () => {
     // 10 h and 30 h; job c (applied before its posted date) is excluded.
     expect(s.medianHoursPostedToApplied).toBe(20);
     expect(s.byType).toEqual({ easy_apply: 2, company_site: 1, unknown: 0 });
+    expect(s.bySite).toEqual({ naukri: 3, indeed: 0, instahyre: 0, wellfound: 0 });
     expect(s.byFeed).toEqual({ profile: 3 });
   });
 
@@ -114,8 +123,68 @@ describe('stats and CSV', () => {
     const csv = appliedCsv(rows);
     const lines = csv.split('\r\n');
     expect(lines).toHaveLength(4);
-    expect(lines[0]).toBe('"Title","Company","Location","Apply type","Posted","Applied","Link"');
+    expect(lines[0]).toBe('"Site","Title","Company","Location","Apply type","Posted","Applied","Link"');
     expect(csv).toContain(`"'=HYPERLINK(""x"")"`);
     expect(csv).toContain('"https://x.example/a"');
+  });
+});
+
+describe('hiding jobs by title words', () => {
+  const words = DEFAULT_HIDDEN_TITLE_WORDS;
+
+  it('starts with Designer and Engineer', () => {
+    expect(words).toEqual(['Designer', 'Engineer']);
+  });
+
+  it.each([
+    ['Senior Software Engineer', true],
+    ['Product Designer', true],
+    ['UX/UI designer - Fintech', true],
+    ['Engineers (Backend)', true],
+    ['Lead Engineer, Platform', true],
+    ['DESIGNER', true],
+    ['Senior Product Manager', false],
+    ['Engineering Manager', false],
+    ['Product Manager - Design Systems', false],
+    ['Reengineering Lead', false],
+  ])('"%s" hidden: %s', (title, hidden) => {
+    expect(titleHasHiddenWord(title, words)).toBe(hidden);
+  });
+
+  it('handles multi-word phrases and characters that mean something in a pattern', () => {
+    expect(titleHasHiddenWord('Customer Success Manager', ['customer success'])).toBe(true);
+    expect(titleHasHiddenWord('C++ Developer', ['C++'])).toBe(true);
+    expect(titleHasHiddenWord('Product Manager (AI)', ['(AI)'])).toBe(true);
+    expect(titleHasHiddenWord('Product Manager', ['.*'])).toBe(false);
+  });
+
+  it('ignores blank words and an empty list', () => {
+    expect(titleHasHiddenWord('Software Engineer', ['', '   '])).toBe(false);
+    expect(titleHasHiddenWord('Software Engineer', [])).toBe(false);
+  });
+
+  it('cleans typed words', () => {
+    expect(cleanHideWord('  Sales   Executive ')).toBe('Sales Executive');
+    expect(cleanHideWord('x'.repeat(100))).toHaveLength(60);
+  });
+
+  it('leaves hidden jobs out of every tab except Applied, and counts them', () => {
+    const rows = buildRows([
+      job({ jobId: 'pm', title: 'Product Manager' }),
+      job({ jobId: 'eng', title: 'Software Engineer' }),
+      job({ jobId: 'des', title: 'Product Designer', applyType: 'company_site' }),
+      job({ jobId: 'eng-applied', title: 'Platform Engineer' }),
+      job({ jobId: 'des-dismissed', title: 'Visual Designer' }),
+    ], [
+      { jobId: 'eng-applied', status: 'applied', statusAt: NOW },
+      { jobId: 'des-dismissed', status: 'dismissed', statusAt: NOW },
+    ], null, NOW);
+    expect(rowsForTab(rows, 'easy_apply', DEFAULT_FILTERS, NOW, words).map((r) => r.jobId)).toEqual(['pm']);
+    expect(rowsForTab(rows, 'company_site', DEFAULT_FILTERS, NOW, words)).toEqual([]);
+    expect(rowsForTab(rows, 'applied', DEFAULT_FILTERS, NOW, words).map((r) => r.jobId)).toEqual(['eng-applied']);
+    // Removing the words brings them back.
+    expect(rowsForTab(rows, 'easy_apply', DEFAULT_FILTERS, NOW, []).map((r) => r.jobId).sort()).toEqual(['eng', 'pm']);
+    // Applied and dismissed jobs are not counted as hidden.
+    expect(countHiddenByTitle(rows, words)).toBe(2);
   });
 });

@@ -78,6 +78,19 @@ body {
 .panel label { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; max-width: 320px; }
 .panel label.check { flex-direction: row; align-items: center; gap: 8px; }
 .hint { color: var(--muted); font-size: 13px; margin: 6px 0; }
+.sources { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.sources li { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; }
+.sources li.off { opacity: 0.55; }
+.source-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.source-name { width: 100%; max-width: 360px; padding: 2px 6px; }
+.source-url { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel label.source-pages { flex-direction: row; align-items: center; gap: 6px; margin: 0; font-size: 13px; }
+.source-pages input { width: 60px; }
+.source-add { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin: 12px 0 4px; }
+.panel .source-add label { margin: 0; }
+.panel .source-add label.grow { flex: 1; min-width: 240px; max-width: none; }
+.source-add label.narrow input { width: 70px; }
+@media (max-width: 640px) { .sources li { flex-wrap: wrap; } }
 
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 0; }
 .stats div { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; }
@@ -127,6 +140,13 @@ input[type="search"] { width: 170px; }
 .row-actions { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
 .chip, .tag { font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
 .tag-new { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.word-chips { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; padding: 0; }
+.word-chips .chip { display: inline-flex; align-items: center; gap: 4px; color: var(--text); }
+.chip-x { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 2px; }
+.chip-x:hover { color: var(--text); }
+.word-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; }
+.word-add input { width: 200px; }
+.tag-site { color: var(--text); font-weight: 600; }
 .tag-warn { background: var(--warn-bg); color: var(--warn-text); border-color: transparent; }
 
 .empty { text-align: center; color: var(--muted); padding: 48px 16px; }

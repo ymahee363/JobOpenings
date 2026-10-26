@@ -1,0 +1,127 @@
+{
+  "data": {
+    "talent": {
+      "__typename": "Talent",
+      "jobSearchResults": {
+        "__typename": "SearchResult",
+        "rawQuery": null,
+        "totalStartupCount": 59,
+        "hasNextPage": true,
+        "startups": {
+          "__typename": "StartupSearchResultConnection",
+          "edges": [
+            {
+              "__typename": "StartupSearchResultEdge",
+              "node": {
+                "__typename": "PromotedResult",
+                "id": "1047223876",
+                "promotionId": "1047223876",
+                "promotedStartup": {
+                  "__typename": "StartupSearchResult",
+                  "id": "1047223876-517943",
+                  "startupId": "517943",
+                  "name": "SciSpace ",
+                  "slug": "typeset",
+                  "highConcept": "The AI Research Co-Scientist (ChatGPT for Research) ",
+                  "companySize": "SIZE_11_50",
+                  "highlightedJobListings": [
+                    {
+                      "__typename": "JobListingSearchResult",
+                      "id": "4735114",
+                      "autoPosted": false,
+                      "atsSource": null,
+                      "description": "(trimmed)",
+                      "jobType": "full-time",
+                      "liveStartAt": 1791718583,
+                      "lastRespondedAt": 1792652003,
+                      "locationNames": ["Bengaluru"],
+                      "acceptedRemoteLocationNames": [],
+                      "primaryRoleTitle": "Product Manager",
+                      "remote": false,
+                      "remoteConfig": { "__typename": "JobListingRemoteConfig", "id": "1430657", "kind": "ONSITE", "wfhFlexible": true },
+                      "slug": "senior-ai-product-manager-with-software-engineering-experience-clone",
+                      "title": "AI Product Manager (With Software Engineering Experience)",
+                      "reposted": true,
+                      "currentUserApplied": false,
+                      "isBookmarked": false,
+                      "compensation": "₹20L – ₹35L • 0.05% – 0.1%",
+                      "equity": "0.05% – 0.1%"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "__typename": "StartupSearchResultEdge",
+              "node": {
+                "__typename": "StartupSearchResult",
+                "id": "11274325",
+                "startupId": "11274325",
+                "name": "Kulfi",
+                "slug": "kulfi",
+                "highConcept": "Digital experiences app for couples",
+                "companySize": "SIZE_11_50",
+                "highlightedJobListings": [
+                  {
+                    "__typename": "JobListingSearchResult",
+                    "id": "4875034",
+                    "autoPosted": false,
+                    "atsSource": "AtsIntegration::Dover::Listing",
+                    "description": "(trimmed)",
+                    "jobType": "full-time",
+                    "liveStartAt": 1792585610,
+                    "locationNames": ["Bengaluru"],
+                    "acceptedRemoteLocationNames": [],
+                    "primaryRoleTitle": "Product Manager",
+                    "remote": false,
+                    "slug": "product-manager",
+                    "title": "Product Manager",
+                    "reposted": false,
+                    "currentUserApplied": true,
+                    "isBookmarked": false,
+                    "compensation": "",
+                    "equity": null
+                  }
+                ]
+              }
+            },
+            {
+              "__typename": "StartupSearchResultEdge",
+              "node": {
+                "__typename": "StartupSearchResult",
+                "id": "10872058",
+                "startupId": "10872058",
+                "name": "Trackier",
+                "slug": "trackier",
+                "highConcept": "Global Leader in Partner Marketing Software",
+                "companySize": "SIZE_51_200",
+                "highlightedJobListings": [
+                  {
+                    "__typename": "JobListingSearchResult",
+                    "id": "4881320",
+                    "autoPosted": false,
+                    "atsSource": "AtsIntegration::Workable::Listing",
+                    "description": "(trimmed)",
+                    "jobType": "full-time",
+                    "liveStartAt": 1792708369,
+                    "locationNames": ["Noida"],
+                    "acceptedRemoteLocationNames": [],
+                    "primaryRoleTitle": "Product Manager",
+                    "remote": true,
+                    "slug": "product-manager-6",
+                    "title": "Product Manager",
+                    "reposted": false,
+                    "currentUserApplied": false,
+                    "isBookmarked": false,
+                    "compensation": "₹14L – ₹15L • No equity",
+                    "equity": "No equity"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

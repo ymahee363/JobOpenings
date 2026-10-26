@@ -1,0 +1,56 @@
+{
+  "meta": {
+    "offset": 0,
+    "limit": 35,
+    "total_count": 6555,
+    "previous": null,
+    "next": "/api/v1/job_search?company_size=0&jobLocations=Work+From+Home&jobLocations=Bangalore&job_type=0&skills=Production+Management&status=0&limit=35&offset=35"
+  },
+  "objects": [
+    {
+      "resource_uri": "/api/v1/job_search/443833",
+      "employer": {
+        "resource_uri": "/api/v1/candidate_opportunity_employer/52084",
+        "id": 52084,
+        "company_name": "Sahi",
+        "company_tagline": "High performance trading platform",
+        "company_founded": 2023,
+        "employee_count": 10
+      },
+      "interview_status": 0,
+      "reviewed_at": null,
+      "public_url": "https://www.instahyre.com/job-443833-product-manager-at-sahi-bangalore/",
+      "is_strong_match": false,
+      "score": 0,
+      "candidate_title": "Product Manager",
+      "id": 443833,
+      "title": "Product Manager",
+      "locations": "Bangalore",
+      "keywords": ["fintech", "product", "sql", "wealthtech"],
+      "accept_outstation": true,
+      "gender": 0,
+      "is_active": true,
+      "is_sourced": false
+    },
+    {
+      "resource_uri": "/api/v1/job_search/440884",
+      "employer": { "id": 5276, "company_name": "Tekion" },
+      "public_url": "https://www.instahyre.com/job-440884-product-manager-at-tekion-bangalore-chennai/",
+      "id": 440884,
+      "title": "Product Manager",
+      "locations": "Bangalore,Chennai",
+      "keywords": ["API", "CDP", "CRM"],
+      "is_active": true
+    },
+    {
+      "resource_uri": "/api/v1/job_search/439962",
+      "employer": { "id": 55836, "company_name": "GetMySaaS" },
+      "public_url": "https://www.instahyre.com/job-439962-product-manager-at-getmysaas-work-from-home/",
+      "id": 439962,
+      "title": "Product Manager",
+      "locations": "Work From Home",
+      "keywords": [],
+      "is_active": true
+    }
+  ]
+}

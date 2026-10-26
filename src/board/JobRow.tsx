@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import type { BoardRow } from '../shared/board';
+import { SITE_LABEL, type BoardRow } from '../shared/board';
 import { formatAge } from '../shared/dates';
 
 interface Props {
@@ -25,7 +25,7 @@ function JobRowImpl({ row, selected, now, onSelect, onPrimary, onOpenNaukri, onM
     <article id={`job-${row.jobId}`} className={cls} aria-selected={selected} onMouseDown={onSelect}>
       <div className="row-main">
         <h3 className="row-title">
-          <button type="button" className="link" onClick={onOpenNaukri} title="Open on Naukri">{row.title}</button>
+          <button type="button" className="link" onClick={onOpenNaukri} title={`Open on ${SITE_LABEL[row.site]}`}>{row.title}</button>
         </h3>
         <div className="row-company">{row.company}</div>
         <div className="row-meta">
@@ -38,6 +38,7 @@ function JobRowImpl({ row, selected, now, onSelect, onPrimary, onOpenNaukri, onM
           {applied && row.statusAt && <span>Applied {new Date(row.statusAt).toLocaleDateString()}</span>}
         </div>
         <div className="row-tags">
+          <span className={`tag tag-site tag-${row.site}`}>{SITE_LABEL[row.site]}</span>
           {row.isNew && <span className="tag tag-new">New</span>}
           {row.appliedBefore && <span className="tag tag-warn">Applied before</span>}
           {row.maybeClosed && <span className="tag tag-muted">May be closed</span>}

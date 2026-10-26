@@ -10,8 +10,8 @@ export interface Posted {
 }
 
 /**
- * Prefer Naukri's absolute createdDate (epoch ms). Fall back to the relative label
- * ("Few Hours Ago", "3 Days Ago", "30+ Days Ago") when it is missing or implausible.
+ * Prefer the site's absolute date (epoch ms). Fall back to the relative label
+ * ("Few Hours Ago", "3 Days Ago", "30+ days ago", "Just posted") when it is missing or implausible.
  */
 export function resolvePostedAt(createdDate: unknown, label: string, now: number): Posted {
   if (typeof createdDate === 'number' && Number.isFinite(createdDate)
@@ -24,7 +24,7 @@ export function resolvePostedAt(createdDate: unknown, label: string, now: number
 export function parseRelativeLabel(label: string, now: number): Posted {
   const s = label.trim().toLowerCase();
   if (!s) return { postedAt: now, approx: true };
-  if (/just now|few (hours|minutes)|today/.test(s)) return { postedAt: now, approx: false };
+  if (/just now|just posted|few (hours|minutes)|today/.test(s)) return { postedAt: now, approx: false };
   if (/yesterday/.test(s)) return { postedAt: now - DAY, approx: false };
 
   const m = /(\d+)\s*(\+)?\s*(minute|min|hour|hr|day|week|month)s?/.exec(s);

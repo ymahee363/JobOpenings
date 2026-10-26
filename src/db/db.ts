@@ -14,6 +14,11 @@ export class BoardDB extends Dexie {
       statuses: 'jobId, status, statusAt',
       log: '++id, ts',
     });
+    // v2: jobs gain `site` when Indeed was added; everything stored before then came from Naukri.
+    this.version(2).stores({}).upgrade((tx) =>
+      tx.table('jobs').toCollection().modify((job: Partial<Job>) => {
+        job.site ??= 'naukri';
+      }));
   }
 }
 

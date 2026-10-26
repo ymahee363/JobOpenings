@@ -37,7 +37,7 @@ Why it matters: early applicants get seen first on Naukri, so hours of delay red
 | --- | --- |
 | Auto-apply or bulk apply | Account risk, and a bad fit ruins applications. Every apply stays a human click |
 | Filling external company forms | Every career site is different. Too costly for the payoff |
-| Sources beyond homepage feeds and the one saved search (other searches, alerts) | Keeps v1 small. Planned for v2 (milestone M5) |
+| Sources beyond homepage feeds, the one saved Naukri search, the Indeed homepage, Instahyre saved searches and Wellfound jobs (other searches, alerts, other job sites) | Keeps v1 small. Planned for v2 (milestone M5) |
 | Multi-user, hosted or mobile app | Personal tool. Hosting would mean storing my Naukri session on a server |
 
 ## 4. Success metrics
@@ -166,6 +166,9 @@ flowchart LR
 
 - A-1 **Confirmed.** Feeds come from `POST /jobapi/v2/search/recom-jobs`. Naukri also caches three of them (profile, apply, preference) in `localStorage` under `srp_simjobs_reco_wdgt_<feed>_<hash>`. The full feed list lives at `/mnjuser/recommendedjobs` (tabs: Profile, Applies, Preferences, You might like), so refresh loads that page rather than the homepage.
 - A-1b **Confirmed 2026-10-23.** Search pages call `GET /jobapi/v3/search?...&pageNo=N` and return `jobDetails` with the same job fields as recom-jobs. `sort=f` in the page URL sorts by date; page N lives at `/product-manager-jobs-N?...`. Refresh now also loads the saved product manager search (feed `search`).
+- A-1c **Confirmed 2026-10-23.** Indeed's homepage (in.indeed.com) embeds "Jobs for you" in `window.mosaic.providerData["mosaic-provider-jobcards-*"].metaData.mosaicProviderJobCardsModel.results`; scrolling loads more via `apis.indeed.com/graphql` (`getJobCardsModel`, the same model as a JSON string). Refresh loads the Indeed homepage after Naukri (feed `indeed-home`); the board has a Site filter.
+- A-1d **Confirmed 2026-10-26.** Instahyre (www.instahyre.com) ignores search filters in a direct link and redirects to recommended jobs (`?matching=true`). Running a saved search from the "Saved Searches" box requests `/api/v1/job_search?...` (`{ meta, objects }`, 35 jobs; no posted date, experience or salary). Refresh opens the opportunities page, clicks the saved search named in the source's `savedSearch` (default "PM BLR WFH"), and reads the first page only (feed `instahyre-search`). Instahyre refreshes on the same schedule as Indeed (daily, on board open, at most hourly).
+- A-1e **Confirmed 2026-10-26.** Wellfound's `https://wellfound.com/jobs` opens with the user's saved filters and loads results via the `JobSearchResultsX` GraphQL query (`data.talent.jobSearchResults.startups.edges[].node.highlightedJobListings`, promoted companies under `promotedStartup`). Refresh loads that page and reads the first page only (feed `wellfound-search`); `liveStartAt` gives the posted time and `currentUserApplied` marks jobs applied. Wellfound refreshes on the same schedule as Indeed and Instahyre.
 - A-2 **Confirmed, better than expected.** `jobId` is stable and `createdDate` is an absolute epoch-ms timestamp. Relative labels (`footerPlaceholderLabel`) are only a fallback.
 - A-3 **Confirmed in feed data.** `companyApplyJob` (boolean) gives the apply type; `applyRedirectUrl` / `companyApplyUrl` give the external link. All 79 cached live jobs validated, all were classified, and every company-site job had an https link. FR-11's job-page lookups are therefore not needed in v1.
 - Still to verify with the installed extension: the "You might like" feed (54 jobs) is not cached, so it must come through the network hook. Check that the board's count matches Naukri's tab totals.

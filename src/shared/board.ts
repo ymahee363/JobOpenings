@@ -1,7 +1,9 @@
 /** Pure board logic: building rows, filtering, sorting and stats. */
-import type { ApplyType, Job, JobStatus, Status } from './types';
+import type { ApplyType, Job, JobStatus, Site, Status } from './types';
 
 const DAY = 86_400_000;
+
+export const SITE_LABEL: Record<Site, string> = { naukri: 'Naukri', indeed: 'Indeed', instahyre: 'Instahyre', wellfound: 'Wellfound' };
 export const MAYBE_CLOSED_AFTER_MS = 7 * DAY;
 
 export interface BoardRow extends Job {
@@ -13,6 +15,7 @@ export interface BoardRow extends Job {
 }
 
 export interface Filters {
+  site: Site | 'all';
   postedWithinDays: number | null;
   expYears: number | null;
   location: string;
@@ -24,6 +27,7 @@ export interface Filters {
 }
 
 export const DEFAULT_FILTERS: Filters = {
+  site: 'all',
   postedWithinDays: 7,
   expYears: null,
   location: '',
@@ -64,6 +68,7 @@ function terms(csv: string): string[] {
 }
 
 export function matchesFilters(row: BoardRow, f: Filters, now: number): boolean {
+  if (f.site !== 'all' && row.site !== f.site) return false;
   if (f.postedWithinDays !== null && now - row.postedAt > f.postedWithinDays * DAY) return false;
   if (f.expYears !== null) {
     if (row.expMin !== null && f.expYears < row.expMin) return false;
@@ -89,16 +94,49 @@ export function matchesFilters(row: BoardRow, f: Filters, now: number): boolean 
 
 export type BoardTab = ApplyType | 'applied';
 
-/** Rows for one tab: applied jobs live in their own tab, dismissed jobs are hidden everywhere. */
-export function rowsForTab(rows: BoardRow[], tab: BoardTab, f: Filters, now: number): BoardRow[] {
+/** Words that hide a job when its title contains them; editable in Settings. */
+export const DEFAULT_HIDDEN_TITLE_WORDS = ['Designer', 'Engineer'];
+
+/** Tidy a typed word: trimmed, inner spaces collapsed, at most 60 characters. */
+export function cleanHideWord(word: string): string {
+  return word.trim().replace(/\s+/g, ' ').slice(0, 60);
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Does the title contain one of the words? Whole words, any case, plurals too: "Engineer" hides
+ * "Software Engineer" and "Engineers" but not "Engineering Manager" (add "Engineering" for that).
+ */
+export function titleHasHiddenWord(title: string, words: string[]): boolean {
+  return words.some((raw) => {
+    const w = cleanHideWord(raw);
+    if (!w) return false;
+    return new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegExp(w)}(s|es)?($|[^\\p{L}\\p{N}])`, 'iu').test(title);
+  });
+}
+
+/**
+ * Rows for one tab: applied jobs live in their own tab, dismissed jobs are hidden everywhere, and jobs
+ * whose title has a hidden word are left out of every tab except Applied.
+ */
+export function rowsForTab(rows: BoardRow[], tab: BoardTab, f: Filters, now: number, hideWords: string[] = []): BoardRow[] {
   if (tab === 'applied') {
     return rows.filter((r) => r.status === 'applied')
       .sort((a, b) => (b.statusAt ?? 0) - (a.statusAt ?? 0));
   }
   return rows
     .filter((r) => r.applyType === tab && r.status !== 'applied' && r.status !== 'dismissed')
+    .filter((r) => !titleHasHiddenWord(r.title, hideWords))
     .filter((r) => matchesFilters(r, f, now))
     .sort(compareNewestFirst);
+}
+
+/** How many open jobs the hidden words currently hide. */
+export function countHiddenByTitle(rows: BoardRow[], hideWords: string[]): number {
+  return rows.filter((r) => r.status !== 'applied' && r.status !== 'dismissed' && titleHasHiddenWord(r.title, hideWords)).length;
 }
 
 export interface Stats {
@@ -107,7 +145,8 @@ export interface Stats {
   medianHoursPostedToApplied: number | null;
   jobsTracked: number;
   byType: Record<ApplyType, number>;
-  /** Jobs per Naukri feed; compare with the tab counts on Naukri's recommended-jobs page. */
+  bySite: Record<Site, number>;
+  /** Jobs per feed; compare the Naukri ones with the tab counts on Naukri's recommended-jobs page. */
   byFeed: Record<string, number>;
 }
 
@@ -122,9 +161,11 @@ export function computeStats(rows: BoardRow[], now: number): Stats {
     median = Math.round(median * 10) / 10;
   }
   const byType: Record<ApplyType, number> = { easy_apply: 0, company_site: 0, unknown: 0 };
+  const bySite: Record<Site, number> = { naukri: 0, indeed: 0, instahyre: 0, wellfound: 0 };
   const byFeed: Record<string, number> = {};
   for (const r of rows) {
     byType[r.applyType] += 1;
+    bySite[r.site] += 1;
     for (const f of r.sourceFeeds) byFeed[f] = (byFeed[f] ?? 0) + 1;
   }
   return {
@@ -133,6 +174,7 @@ export function computeStats(rows: BoardRow[], now: number): Stats {
     medianHoursPostedToApplied: median,
     jobsTracked: rows.length,
     byType,
+    bySite,
     byFeed,
   };
 }
@@ -144,12 +186,12 @@ function csvCell(v: string): string {
 }
 
 export function appliedCsv(rows: BoardRow[]): string {
-  const header = ['Title', 'Company', 'Location', 'Apply type', 'Posted', 'Applied', 'Link'];
+  const header = ['Site', 'Title', 'Company', 'Location', 'Apply type', 'Posted', 'Applied', 'Link'];
   const lines = rows
     .filter((r) => r.status === 'applied')
     .sort((a, b) => (b.statusAt ?? 0) - (a.statusAt ?? 0))
     .map((r) => [
-      r.title, r.company, r.location, r.applyType === 'company_site' ? 'Company site' : 'Easy apply',
+      SITE_LABEL[r.site], r.title, r.company, r.location, r.applyType === 'company_site' ? 'Company site' : 'Easy apply',
       new Date(r.postedAt).toISOString(), r.statusAt ? new Date(r.statusAt).toISOString() : '',
       r.externalUrl ?? r.naukriUrl,
     ].map(csvCell).join(','));
