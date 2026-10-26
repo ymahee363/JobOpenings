@@ -1,7 +1,7 @@
 /**
  * Isolated-world content script on the job sites. It:
  *  1. relays feed responses from the MAIN-world hook to the service worker,
- *  2. reads the feeds Naukri caches in localStorage (Naukri only),
+ *  2. reads the feeds Naukri caches in localStorage (Naukri only) and the job cards on LinkedIn job pages,
  *  3. reports logged-out or captcha pages,
  *  4. on job pages, reports when Naukri shows the job as applied, and
  *  5. when the service worker asks (only on pages the app opened itself), runs an Instahyre saved search and
@@ -9,7 +9,9 @@
  */
 import { FEED_CACHE_KEY_RE, HOOK_TAG } from '../shared/constants';
 import type { CollectorMessage } from '../shared/messages';
-import { detectPageState, feedForCapture, findSavedSearchLink, scrollPlan, siteOfHost } from '../shared/page';
+import {
+  detectPageState, feedForCapture, findSavedSearchLink, ignoredCapture, linkedInCardsFrom, scrollPlan, siteOfHost,
+} from '../shared/page';
 import { jobIdFromJobPath } from '../shared/url';
 
 const SETTLE_MS = 3_000;
@@ -33,6 +35,7 @@ window.addEventListener('message', (event: MessageEvent) => {
   if (event.source !== window || event.origin !== window.location.origin) return;
   const data = event.data as { tag?: unknown; url?: unknown; body?: unknown } | null;
   if (!data || data.tag !== HOOK_TAG || typeof data.url !== 'string') return;
+  if (ignoredCapture(site, data.url)) return;
   send({ type: 'capture', site, source: 'network', feed: feedForCapture(site, location.pathname, data.url), url: data.url.slice(0, 2048), payload: data.body });
 });
 
@@ -57,6 +60,31 @@ function readCachedFeeds(): void {
       // Malformed cache entry; skip it.
     }
   }
+}
+
+// 2b. LinkedIn: read the job cards on the page you have open. Nothing is requested, clicked or scrolled; the
+// cards are re-read when the page changes (you scroll, change page or search) and only new or changed cards
+// are sent.
+const LINKEDIN_SCAN_MS = 1_500;
+const sentCards = new Map<string, string>();
+
+function scanLinkedIn(): void {
+  if (!location.pathname.startsWith('/jobs')) return;
+  const fresh = linkedInCardsFrom(document).filter((c) => sentCards.get(c.jobId) !== c.lines.join('\n'));
+  if (!fresh.length) return;
+  for (const c of fresh) sentCards.set(c.jobId, c.lines.join('\n'));
+  const feed = location.pathname.startsWith('/jobs/search') ? 'linkedin-search' : 'linkedin-jobs';
+  send({ type: 'capture', site, source: 'page', feed, url: location.href.slice(0, 2048), payload: { cards: fresh } });
+}
+
+function watchLinkedIn(): void {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const later = () => {
+    clearTimeout(timer);
+    timer = setTimeout(scanLinkedIn, LINKEDIN_SCAN_MS);
+  };
+  new MutationObserver(later).observe(document.body, { childList: true, subtree: true });
+  later();
 }
 
 // 3. Page state.
@@ -92,6 +120,11 @@ function onReady(): void {
   const state = pageState();
   send({ type: 'page-state', site, state, url: location.href });
   if (state !== 'ok') return;
+
+  if (site === 'linkedin') {
+    watchLinkedIn();
+    return;
+  }
 
   const jobId = jobIdFromJobPath(location.pathname);
   if (jobId) watchForApplied(jobId);
@@ -130,10 +163,26 @@ async function runSavedSearch(name: string): Promise<void> {
   await wait(SAVED_SEARCH_SETTLE_MS);
 }
 
+/**
+ * What to scroll: the page, or on sites that scroll only a panel (Cutshort's job column), the tallest
+ * scrollable element, so scrolling still loads the next results.
+ */
+function scrollTarget(): { scrollBy: (o: ScrollToOptions) => void } {
+  const doc = document.scrollingElement;
+  if (doc && doc.scrollHeight > doc.clientHeight + 50) return window;
+  let best: HTMLElement | null = null;
+  for (const el of document.querySelectorAll<HTMLElement>('body *')) {
+    if (el.scrollHeight <= el.clientHeight + 50 || (best && el.clientHeight <= best.clientHeight)) continue;
+    if (/(auto|scroll)/.test(getComputedStyle(el).overflowY)) best = el;
+  }
+  return best ?? window;
+}
+
 async function scrollAround(): Promise<void> {
+  const target = scrollTarget();
   for (const step of scrollPlan(Math.random)) {
     await wait(step.waitMs);
-    window.scrollBy({ top: step.dy, left: 0, behavior: 'auto' });
+    target.scrollBy({ top: step.dy, left: 0, behavior: 'auto' });
   }
 }
 

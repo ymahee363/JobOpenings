@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { getDb } from '../db/db';
 import { exportBackup, importBackup, purge, recentLog } from '../db/repo';
-import { appliedCsv, cleanHideWord, DEFAULT_HIDDEN_TITLE_WORDS, type BoardRow, type Stats } from '../shared/board';
+import {
+  appliedCsv, cleanHideWord, DEFAULT_HIDDEN_TITLE_WORDS, SITE_LABEL, SITES, type BoardRow, type Stats,
+} from '../shared/board';
 import { clampRefreshMinutes } from '../shared/safety';
 import { save } from '../shared/store';
 import type { LogEntry, Settings } from '../shared/types';
@@ -31,11 +33,11 @@ export function StatsPanel({ stats }: { stats: Stats }) {
         <div><dt>Jobs tracked</dt><dd>{stats.jobsTracked}</dd></div>
         <div><dt>Easy Apply / Company Site / Unknown</dt>
           <dd>{stats.byType.easy_apply} / {stats.byType.company_site} / {stats.byType.unknown}</dd></div>
-        <div><dt>Naukri / Indeed / Instahyre / Wellfound</dt>
-          <dd>{stats.bySite.naukri} / {stats.bySite.indeed} / {stats.bySite.instahyre} / {stats.bySite.wellfound}</dd></div>
+        <div><dt>Jobs per site</dt>
+          <dd>{SITES.map((s) => `${SITE_LABEL[s]} ${stats.bySite[s]}`).join(' · ')}</dd></div>
       </dl>
       <p className="hint">Targets: 2x your baseline applications per week, and a median under 24 hours.</p>
-      <h3 className="hint">Jobs per feed ("search" is the saved Naukri product manager search, "indeed-*" come from Indeed, "instahyre-search" from Instahyre saved searches, "wellfound-search" from Wellfound; the rest match the tabs on Naukri's recommended jobs page)</h3>
+      <h3 className="hint">Jobs per feed ("search" is the saved Naukri product manager search, "indeed-*" come from Indeed, "instahyre-search" from Instahyre saved searches, "wellfound-search" from Wellfound, "cutshort-search" from Cutshort, "foundit-search" from foundit, "iimjobs-search" from iimjobs, "linkedin-*" from LinkedIn pages you opened; the rest match the tabs on Naukri's recommended jobs page)</h3>
       <dl className="stats">
         {Object.entries(stats.byFeed).sort(([a], [b]) => a.localeCompare(b)).map(([feed, n]) => (
           <div key={feed}><dt>{feed}</dt><dd>{n}</dd></div>
@@ -92,12 +94,12 @@ export function SettingsPanel({ settings, hiddenTitleWords, hiddenCount }: Setti
       </label>
       <p className="hint">
         Automatic refreshes run only between 9:00 and 22:00. Naukri picks up again at a random time between 9:00 and
-        9:30 each morning; Indeed, Instahyre and Wellfound refresh once a day at a random time in that window. Refresh still works any time.
+        9:30 each morning; the other sites refresh once a day at a random time in that window. Refresh still works any time.
       </p>
       <label className="check">
         <input type="checkbox" checked={settings.indeedOnBoardOpen}
           onChange={(e) => apply({ ...settings, indeedOnBoardOpen: e.target.checked })} />
-        Also refresh Indeed, Instahyre and Wellfound when I open the board (each at most once an hour)
+        Also refresh the other sites when I open the board (each at most once an hour)
       </label>
       <label className="check">
         <input type="checkbox" checked={settings.notifyNewJobs}
@@ -106,7 +108,8 @@ export function SettingsPanel({ settings, hiddenTitleWords, hiddenCount }: Setti
       </label>
       <p className="hint">
         Each page the app opens stays open for 2 to 3.5 minutes, with a random 5 to 20 second gap before the next.
-        A captcha on any of the job sites stops all refreshes until you press Resume.
+        A captcha on any of the job sites stops all refreshes until you press Resume. LinkedIn is never refreshed: its
+        jobs are saved only when you open LinkedIn job pages yourself.
       </p>
 
       <h3 className="hint">Hide jobs whose title has these words</h3>

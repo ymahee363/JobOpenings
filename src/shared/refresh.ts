@@ -1,6 +1,6 @@
 /** The refresh sequence over the source list. Pure apart from the injected page loader, so it can be unit tested. */
 import { siteOfUrl, sourcePageUrl, type Source } from './sources';
-import type { Site } from './types';
+import type { AppSite } from './types';
 
 export type LoadOutcome = 'done' | 'logged_out' | 'captcha' | 'timeout';
 
@@ -22,7 +22,7 @@ export interface RefreshRun {
   added: number;
   loads: number;
   /** The first page that did not load cleanly. */
-  problem: { site: Site; result: Exclude<LoadOutcome, 'done'> } | null;
+  problem: { site: AppSite; result: Exclude<LoadOutcome, 'done'> } | null;
   /** Refresh stopped early because it was halted. */
   halted: boolean;
 }
@@ -35,7 +35,7 @@ export interface RefreshRun {
  */
 export async function runSources(sources: Source[], deps: RefreshDeps, opts: RefreshOptions): Promise<RefreshRun> {
   const run: RefreshRun = { added: 0, loads: 0, problem: null, halted: false };
-  const loggedOut = new Set<Site>();
+  const loggedOut = new Set<AppSite>();
   for (const source of sources) {
     if (!source.enabled) continue;
     const site = siteOfUrl(new URL(source.url));

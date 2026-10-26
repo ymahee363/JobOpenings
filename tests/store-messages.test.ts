@@ -45,10 +45,10 @@ describe('store defaults', () => {
     expect(await load('sources')).toBeNull();
   });
 
-  it('gives filters saved before the Site filter existed the "All" default', async () => {
-    const { site: _site, ...old } = DEFAULT_FILTERS;
+  it('gives filters saved before the Sites filter existed the "All" default', async () => {
+    const { sites: _sites, ...old } = DEFAULT_FILTERS;
     data.filters = { ...old, location: 'Pune' };
-    expect(await load('filters')).toEqual({ ...DEFAULT_FILTERS, location: 'Pune', site: 'all' });
+    expect(await load('filters')).toEqual({ ...DEFAULT_FILTERS, location: 'Pune', sites: [] });
   });
 });
 
@@ -57,7 +57,8 @@ describe('CollectorMessage', () => {
 
   it('requires a known site on captures and page states', () => {
     expect(CollectorMessage.safeParse({ ...capture, site: 'indeed' }).success).toBe(true);
-    expect(CollectorMessage.safeParse({ ...capture, site: 'linkedin' }).success).toBe(false);
+    expect(CollectorMessage.safeParse({ ...capture, site: 'linkedin', source: 'page' }).success).toBe(true);
+    expect(CollectorMessage.safeParse({ ...capture, site: 'monster' }).success).toBe(false);
     expect(CollectorMessage.safeParse(capture).success).toBe(false);
     expect(CollectorMessage.safeParse({ type: 'page-state', site: 'naukri', state: 'captcha', url: '/' }).success).toBe(true);
     expect(CollectorMessage.safeParse({ type: 'page-state', state: 'captcha', url: '/' }).success).toBe(false);

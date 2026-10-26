@@ -80,7 +80,8 @@ export function SourcesPanel() {
         Refresh loads these links in order. Paste a Naukri (www.naukri.com), Indeed (in.indeed.com) or Wellfound
         (wellfound.com) page, such as a search with your filters. Searches are sorted newest first, and later pages load only while the previous page
         found new jobs. Instahyre ignores search links, so for Instahyre paste its opportunities page and name one of
-        your saved searches there; refresh clicks it and reads the first page of results.
+        your saved searches there; refresh clicks it and reads the first page of results. LinkedIn links are not
+        accepted: the app never opens LinkedIn, but jobs on LinkedIn job pages you open are saved.
         {' '}{custom ? 'Using your list.' : 'Using the sources.json defaults.'}
       </p>
 

@@ -4,9 +4,13 @@ A personal Chrome extension that lists the openings Naukri recommends to you, pl
 [product manager search](https://www.naukri.com/product-manager-jobs?k=%22product%20manager%22&nignbevent_src=jobsearchDeskGNB&jobAge=30&functionAreaIdGid=10&experience=6&cityTypeGid=97),
 your [Indeed "Jobs for you"](https://in.indeed.com/?from=gnav-homepage--homepage-frontend) list,
 the first page of your Instahyre saved search "PM BLR WFH", and the first page of
-[Wellfound jobs](https://wellfound.com/jobs) with your saved filters,
+[Wellfound jobs](https://wellfound.com/jobs) with your saved filters, the
+[Cutshort jobs matching your profile](https://cutshort.io/profile/all-jobs?matchesfor=621ce92d9b95180034a9b0e4),
+a [foundit search](https://www.foundit.in/search/product-manager-jobs-in-bengaluru-bangalore?start=1&limit=20&query=product+manager&location=bengaluru+%2F+bangalore&queryDerived=true&jobFreshness=3)
+(product manager, Bengaluru, last 3 days, up to 5 pages), an [iimjobs AI search](https://www.iimjobs.com/ai-search?query=product-manager)
+(product manager, no experience filter), and the LinkedIn jobs you look at yourself,
 **newest first**, split into **Easy Apply** (apply on Naukri, Instahyre or Wellfound, or Indeed Apply) and **Company Site** (apply
-on the employer's site) tabs. A **Site** filter shows one site or all of them. Everything stays in your browser. See [PRD.md](PRD.md) for the product spec.
+on the employer's site) tabs. The **Sites** checkboxes show any mix of sites at once (none ticked, or **All**, shows every site). Everything stays in your browser. See [PRD.md](PRD.md) for the product spec.
 
 ## Install
 
@@ -37,7 +41,7 @@ add an entry there:
 { "name": "Indeed: product manager, Bengaluru", "url": "https://in.indeed.com/jobs?q=product+manager&l=Bengaluru", "maxPages": 3 }
 ```
 
-- Links must be on `www.naukri.com`, `in.indeed.com`, `www.instahyre.com` or `wellfound.com`.
+- Links must be on `www.naukri.com`, `in.indeed.com`, `www.instahyre.com`, `wellfound.com`, `cutshort.io`, `www.foundit.in` or `www.iimjobs.com`.
 - `https://wellfound.com/jobs` opens with the filters you last set on Wellfound (role, location, job type), so
   change the search there. Only the first page of results is read.
 - Instahyre ignores the filters in a pasted search link and shows your recommended jobs instead. So an Instahyre
@@ -49,6 +53,7 @@ add an entry there:
   In the Sources panel, fill in **Saved search** when adding an Instahyre link.
 - `maxPages` (default 1) is how many result pages to load; later pages load only while the previous one found new jobs.
 - Search links are sorted newest first (Naukri `sort=f`, Indeed `sort=date`) unless the link already sets a sort.
+  foundit searches are paged with `start=1, 2, …` and kept recent by their own `jobFreshness` filter.
 - `"enabled": false` skips a link without deleting it.
 - One refresh opens at most 40 pages in total.
 
@@ -95,6 +100,37 @@ the job Applied. Indeed shows no experience range, so the experience filter lets
 posted date, experience or salary, so jobs are dated by when the board first saw them. Applying happens on
 Instahyre, so they go in Easy Apply.
 
+**LinkedIn** (confirmed on www.linkedin.com on 2026-10-26): the jobs search is server-rendered React
+(`flagship-web`), so there is no job JSON to capture. The content script reads each card,
+`[componentkey="job-card-component-ref-<jobId>"]`, as lines of text: title (screen-reader copy may prefix
+"Selected, " or add " (Verified job)", then the title repeats), company, location, a hidden "Posted 4 hours ago",
+and footer items such as "Applied" or "Easy Apply". `src/shared/parse-linkedin.ts` turns them into jobs
+(`linkedin-<jobId>`, `/jobs/view/<jobId>/`); "Applied" marks the job Applied. No salary or experience is shown.
+
+**iimjobs** (confirmed on www.iimjobs.com on 2026-10-26): `/ai-search?query=product-manager` loads
+`gladiator.iimjobs.com/job/search?...&page=0` (`{ data: [...], limit: 50, totalJobs, hasMore }`). It first runs the
+search with the experience range from your profile (`minexp=7&maxexp=10`) and then without it; captures with an
+experience range are ignored, so no experience filter is applied. `src/shared/parse-iimjobs.ts` maps `id` → job ID
+`iimjobs-<id>`, `createdTimeMs` → posted time, `min`/`max` → experience, `tags` → skills, `jobDetailUrl` → job page
+and `applied` → marks the job Applied. Jobs with an off-site `applyUrl` (Lever, Turbohire, ...) go in **Company
+Site**, the rest in **Easy Apply**.
+
+**foundit** (confirmed on www.foundit.in on 2026-10-26): a `/search/...?start=<page>` page loads
+`/home/api/searchResultsPage?start=<offset>&limit=20&...` (`{ data: [...], meta: { paging: { total } } }`).
+`src/shared/parse-foundit.ts` maps `jobId` → job ID `foundit-<jobId>`, `postedAt` (ms) → posted time,
+`minimumExperience`/`maximumExperience` → experience, salary `absoluteValue` (yearly ₹) → LPA unless hidden,
+`skills[].text` → skills, `jdUrl` → job page and `isApplied` → marks the job Applied. Many listings are syndicated
+from LinkedIn or company career sites: when `applyUrl` points off foundit the job goes in **Company Site** with that
+link, otherwise **Easy Apply**. foundit runs Akamai bot detection, so keep its page count modest.
+
+**Cutshort** (confirmed on cutshort.io on 2026-10-26): `/profile/all-jobs?matchesfor=<profile>` loads
+`/findjobs/q?page=N&matchesfor=...` (`{ page, totalPages, total_count, page_size: 5, results }`), page 1 on load and
+the next pages as the job column scrolls. Only that column scrolls, not the page, so the refresh's scrolling falls
+back to the tallest scrollable element. `src/shared/parse-cutshort.ts` maps `_id` → job ID `cutshort-<_id>`,
+`headline` → title, `expRange.minVanity`/`maxVanity` → experience, `salaryRangeText` → salary ("Best in industry"
+means undisclosed), `hiringIntentShownOn` (else `creationDate`) → posted time, `publicUrl` → job page; feed
+`cutshort-search`. The list is "recently active" jobs, so some were posted weeks ago: widen "Posted within" to see them.
+
 **Wellfound** (confirmed on wellfound.com on 2026-10-26): `/jobs` applies your saved filters and loads results
 with the `JobSearchResultsX` query to `/graphql` (nothing job-related is embedded in `__NEXT_DATA__`).
 `data.talent.jobSearchResults.startups.edges[].node` is a company, or a promoted one under `promotedStartup`; each
@@ -114,7 +150,7 @@ job Applied; feed `wellfound-search`. Listings show "Apply on Wellfound", so the
 - **Naukri** refreshes automatically at your interval plus a random 30 s to 15 min, a different delay every time,
   only between 9:00 and 22:00. A refresh that would fall at night moves to a random time between 9:00 and 9:30 the
   next morning. Each refresh sets the next one. At most once every 15 minutes.
-- **Indeed**, **Instahyre** and **Wellfound** refresh automatically once a day at a random time between 9:00 and 22:00, and when
+- **Indeed**, **Instahyre**, **Wellfound**, **Cutshort**, **foundit** and **iimjobs** refresh automatically once a day at a random time between 9:00 and 22:00, and when
   you open the board (switch this off in Settings). Each at most once an hour.
 - **Refresh** does every site, skipping any that is still inside its minimum gap. The board header shows when each
   site's next automatic refresh is due.
@@ -127,6 +163,11 @@ job Applied; feed `wellfound-search`. Listings show "Apply on Wellfound", so the
   desktop notification.
 - A Naukri logout pauses Naukri refreshes for 1 hour; the other sites keep going. If an Instahyre saved
   search is not found (renamed or deleted), the Log panel says so.
+- **LinkedIn is never opened or refreshed by the app**, on any timer or button. Its jobs are saved only when you
+  open a LinkedIn jobs page yourself (for example your
+  [product manager search](https://www.linkedin.com/jobs/search-results/?keywords=%22Product%20manager%22&f_TPR=r86400&f_AL=true)):
+  the extension reads the job cards already on screen, and again as you scroll or change page. It sends no
+  requests, clicks nothing and does not hook LinkedIn's network calls. LinkedIn links are refused in the Sources panel.
 - It never applies for you.
 - Personal use only; no data leaves your machine.
 

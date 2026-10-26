@@ -2,7 +2,7 @@
 
 /** Floor between app refreshes of Naukri. */
 export const MIN_APP_LOAD_INTERVAL_MS = 15 * 60_000;
-/** Floor between app refreshes of each of Indeed, Instahyre and Wellfound (opening the board can trigger one). */
+/** Floor between app refreshes of each site other than Naukri (opening the board can trigger one). */
 export const MIN_INDEED_LOAD_INTERVAL_MS = 60 * 60_000;
 export const PAUSE_MS = 60 * 60_000;
 export const REFRESH_TIMEOUT_MS = 45_000;
@@ -16,6 +16,12 @@ export interface SafetyState {
   lastInstahyreLoadAt: number | null;
   /** Last app refresh of Wellfound, from any trigger. */
   lastWellfoundLoadAt: number | null;
+  /** Last app refresh of Cutshort, from any trigger. */
+  lastCutshortLoadAt: number | null;
+  /** Last app refresh of foundit, from any trigger. */
+  lastFounditLoadAt: number | null;
+  /** Last app refresh of iimjobs, from any trigger. */
+  lastIimjobsLoadAt: number | null;
   /** Last run of the once-a-day refresh of Indeed, Instahyre and Wellfound. */
   lastIndeedDailyAt: number | null;
   /** A Naukri logout pause; it holds Naukri refreshes only. */
@@ -27,19 +33,24 @@ export interface SafetyState {
 }
 
 export const DEFAULT_SAFETY: SafetyState = {
-  lastAppLoadAt: null, lastIndeedLoadAt: null, lastInstahyreLoadAt: null, lastWellfoundLoadAt: null,
+  lastAppLoadAt: null, lastIndeedLoadAt: null, lastInstahyreLoadAt: null, lastWellfoundLoadAt: null, lastCutshortLoadAt: null, lastFounditLoadAt: null, lastIimjobsLoadAt: null,
   lastIndeedDailyAt: null,
   pausedUntil: null, pauseReason: null, haltedAt: null, haltReason: null,
 };
 
-type SiteName = 'naukri' | 'indeed' | 'instahyre' | 'wellfound';
+type SiteName = 'naukri' | 'indeed' | 'instahyre' | 'wellfound' | 'cutshort' | 'foundit' | 'iimjobs'; // AppSite: LinkedIn is never opened by the app
 type HourlySite = Exclude<SiteName, 'naukri'>;
 
 /** The sites refreshed at most hourly, with where each one's last app refresh is kept. */
-const HOURLY: Record<HourlySite, { key: 'lastIndeedLoadAt' | 'lastInstahyreLoadAt' | 'lastWellfoundLoadAt'; name: string }> = {
+type HourlyKey = 'lastIndeedLoadAt' | 'lastInstahyreLoadAt' | 'lastWellfoundLoadAt' | 'lastCutshortLoadAt' | 'lastFounditLoadAt'
+  | 'lastIimjobsLoadAt';
+const HOURLY: Record<HourlySite, { key: HourlyKey; name: string }> = {
   indeed: { key: 'lastIndeedLoadAt', name: 'Indeed' },
   instahyre: { key: 'lastInstahyreLoadAt', name: 'Instahyre' },
   wellfound: { key: 'lastWellfoundLoadAt', name: 'Wellfound' },
+  cutshort: { key: 'lastCutshortLoadAt', name: 'Cutshort' },
+  foundit: { key: 'lastFounditLoadAt', name: 'foundit' },
+  iimjobs: { key: 'lastIimjobsLoadAt', name: 'iimjobs' },
 };
 
 export type LoadDecision =

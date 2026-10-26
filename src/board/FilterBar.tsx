@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import { DEFAULT_FILTERS, type Filters } from '../shared/board';
+import { DEFAULT_FILTERS, SITE_LABEL, SITES, toggleSite, type Filters } from '../shared/board';
 
 interface Props {
   filters: Filters;
@@ -15,16 +15,20 @@ export const FilterBar = forwardRef<HTMLInputElement, Props>(function FilterBar(
   const set = <K extends keyof Filters>(k: K, v: Filters[K]) => onChange({ ...f, [k]: v });
   return (
     <form className="filters" aria-label="Filters" onSubmit={(e) => e.preventDefault()}>
-      <label>
-        Site
-        <select value={f.site} onChange={(e) => set('site', e.target.value as Filters['site'])}>
-          <option value="all">All</option>
-          <option value="naukri">Naukri</option>
-          <option value="indeed">Indeed</option>
-          <option value="instahyre">Instahyre</option>
-          <option value="wellfound">Wellfound</option>
-        </select>
-      </label>
+      <fieldset className="sites">
+        <legend>Sites</legend>
+        <label className="check">
+          <input type="checkbox" checked={f.sites.length === 0} onChange={() => set('sites', [])} />
+          All
+        </label>
+        {SITES.map((s) => (
+          <label key={s} className="check">
+            <input type="checkbox" checked={f.sites.includes(s)}
+              onChange={(e) => set('sites', toggleSite(f.sites, s, e.target.checked))} />
+            {SITE_LABEL[s]}
+          </label>
+        ))}
+      </fieldset>
       <label>
         Posted within
         <select

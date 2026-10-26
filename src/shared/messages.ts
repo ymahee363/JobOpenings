@@ -1,13 +1,13 @@
 import { z } from 'zod';
 
-const SiteSchema = z.enum(['naukri', 'indeed', 'instahyre', 'wellfound']);
+const SiteSchema = z.enum(['naukri', 'indeed', 'instahyre', 'wellfound', 'linkedin', 'cutshort', 'foundit', 'iimjobs']);
 
 /** Messages from the content scripts on the job sites to the service worker. Validated on arrival. */
 export const CollectorMessage = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('capture'),
     site: SiteSchema,
-    source: z.enum(['network', 'storage']),
+    source: z.enum(['network', 'storage', 'page']),
     feed: z.string().max(64).nullable(),
     url: z.string().max(2048),
     payload: z.unknown(),

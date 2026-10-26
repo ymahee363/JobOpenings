@@ -1,10 +1,12 @@
 export type ApplyType = 'easy_apply' | 'company_site' | 'unknown';
-export type Site = 'naukri' | 'indeed' | 'instahyre' | 'wellfound';
+export type Site = 'naukri' | 'indeed' | 'instahyre' | 'wellfound' | 'linkedin' | 'cutshort' | 'foundit' | 'iimjobs';
+/** Sites the app may open by itself on refresh. LinkedIn is read only from pages you open. */
+export type AppSite = Exclude<Site, 'linkedin'>;
 export type Status = 'new' | 'seen' | 'applied' | 'dismissed';
 
 /** A job as stored in the `jobs` table. Refreshes update it; they never touch status. */
 export interface Job {
-  /** Naukri's numeric job ID, `indeed-<jobkey>` for Indeed, `instahyre-<id>` for Instahyre, or `wellfound-<id>` for Wellfound. */
+  /** Naukri's numeric job ID, `indeed-<jobkey>` for Indeed, `instahyre-<id>` for Instahyre, `wellfound-<id>` for Wellfound, `cutshort-<id>` for Cutshort, `foundit-<id>` for foundit, `iimjobs-<id>` for iimjobs, or `linkedin-<id>` for LinkedIn. */
   jobId: string;
   site: Site;
   title: string;

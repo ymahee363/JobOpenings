@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import home from './fixtures/indeed-home.json';
 import {
-  detectPageState, feedForCapture, findSavedSearchLink, indeedModelsFrom, scrollPlan, siteOfHost,
+  detectPageState, feedForCapture, findSavedSearchLink, indeedModelsFrom, linkedInCardsFrom, scrollPlan, siteOfHost,
 } from '../src/shared/page';
 
 describe('siteOfHost', () => {
@@ -10,6 +10,10 @@ describe('siteOfHost', () => {
     expect(siteOfHost('www.naukri.com')).toBe('naukri');
     expect(siteOfHost('www.instahyre.com')).toBe('instahyre');
     expect(siteOfHost('wellfound.com')).toBe('wellfound');
+    expect(siteOfHost('www.linkedin.com')).toBe('linkedin');
+    expect(siteOfHost('cutshort.io')).toBe('cutshort');
+    expect(siteOfHost('www.foundit.in')).toBe('foundit');
+    expect(siteOfHost('www.iimjobs.com')).toBe('iimjobs');
   });
 });
 
@@ -47,6 +51,18 @@ describe('detectPageState', () => {
     expect(detectPageState('wellfound', '/jobs', 'Just a moment...', '')).toBe('captcha');
   });
 
+  it('spots foundit logins', () => {
+    expect(detectPageState('foundit', '/rio/login', 'Login | foundit', '')).toBe('logged_out');
+    expect(detectPageState('foundit', '/search/pm-jobs', 'Product Manager Jobs', 'Showing 81 Results')).toBe('ok');
+  });
+
+  it("spots LinkedIn's login and security check", () => {
+    expect(detectPageState('linkedin', '/checkpoint/challenge/AgE', 'Security Verification | LinkedIn', '')).toBe('captcha');
+    expect(detectPageState('linkedin', '/authwall', 'LinkedIn', '')).toBe('logged_out');
+    expect(detectPageState('linkedin', '/login', 'LinkedIn Login', '')).toBe('logged_out');
+    expect(detectPageState('linkedin', '/jobs/search-results/', '"Product manager" jobs | LinkedIn', 'Easy Apply')).toBe('ok');
+  });
+
   it('does not treat Indeed paths as Naukri logins', () => {
     expect(detectPageState('indeed', '/login-help', 'Indeed', '')).toBe('ok');
   });
@@ -61,6 +77,8 @@ describe('feedForCapture', () => {
   it('names Instahyre captures as searches', () => {
     expect(feedForCapture('instahyre', '/candidate/opportunities/', '/api/v1/job_search?skills=x')).toBe('instahyre-search');
     expect(feedForCapture('wellfound', '/jobs', 'https://wellfound.com/graphql')).toBe('wellfound-search');
+    expect(feedForCapture('cutshort', '/profile/all-jobs', '/findjobs/q?page=2')).toBe('cutshort-search');
+    expect(feedForCapture('foundit', '/search/pm-jobs', '/home/api/searchResultsPage?start=0')).toBe('foundit-search');
   });
 
   it('tags Naukri search results and leaves recom-jobs to the parser', () => {
@@ -145,5 +163,25 @@ describe('findSavedSearchLink', () => {
   it('returns null when the search is not there', () => {
     expect(findSavedSearchLink(box(['Design Pune']).root, 'PM BLR WFH')).toBeNull();
     expect(findSavedSearchLink(box([]).root, 'PM BLR WFH')).toBeNull();
+  });
+});
+
+describe('linkedInCardsFrom', () => {
+  // Just enough DOM: elements with a componentkey attribute and their rendered text.
+  function root(cards: Array<{ key: string; text: string }>): ParentNode {
+    const els = cards.map((c) => ({ getAttribute: (n: string) => (n === 'componentkey' ? c.key : null), innerText: c.text }));
+    return { querySelectorAll: () => els } as unknown as ParentNode;
+  }
+
+  it('reads the job ID from componentkey and the card text as trimmed lines', () => {
+    const r = root([
+      { key: 'job-card-component-ref-4482930457', text: 'Director of Product\n Cyware \n\nBengaluru (On-site)\nEasy Apply' },
+      { key: 'job-card-component-ref-4482930457', text: 'duplicate\nA\nB' },
+      { key: 'job-card-component-ref-x', text: 'bad id\nA\nB' },
+      { key: 'job-card-component-ref-4481407827', text: 'Loading' },
+    ]);
+    expect(linkedInCardsFrom(r)).toEqual([
+      { jobId: '4482930457', lines: ['Director of Product', 'Cyware', 'Bengaluru (On-site)', 'Easy Apply'] },
+    ]);
   });
 });

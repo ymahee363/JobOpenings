@@ -1,13 +1,17 @@
 // Page-level helpers for the content scripts. Dependency-free (constants only) so the scripts stay tiny.
 import { SEARCH_API_RE } from './constants';
 
-export type PageSite = 'naukri' | 'indeed' | 'instahyre' | 'wellfound';
+export type PageSite = 'naukri' | 'indeed' | 'instahyre' | 'wellfound' | 'linkedin' | 'cutshort' | 'foundit' | 'iimjobs';
 export type PageStateValue = 'ok' | 'logged_out' | 'captcha';
 
 export function siteOfHost(hostname: string): PageSite {
   if (hostname.endsWith('indeed.com')) return 'indeed';
   if (hostname.endsWith('instahyre.com')) return 'instahyre';
   if (hostname.endsWith('wellfound.com')) return 'wellfound';
+  if (hostname.endsWith('cutshort.io')) return 'cutshort';
+  if (hostname.endsWith('foundit.in')) return 'foundit';
+  if (hostname.endsWith('iimjobs.com')) return 'iimjobs';
+  if (hostname.endsWith('linkedin.com')) return 'linkedin';
   return 'naukri';
 }
 
@@ -19,7 +23,15 @@ export function siteOfHost(hostname: string): PageSite {
  */
 export function detectPageState(site: PageSite, pathname: string, title: string, text: string): PageStateValue {
   if (site === 'naukri' && /\/(nlogin|login)\b/i.test(pathname)) return 'logged_out';
-  if ((site === 'instahyre' || site === 'wellfound') && /^\/(login|signup)\b/i.test(pathname)) return 'logged_out';
+  if ((site === 'instahyre' || site === 'wellfound' || site === 'cutshort' || site === 'iimjobs') && /^\/(login|signup)\b/i.test(pathname)) {
+    return 'logged_out';
+  }
+  if (site === 'foundit' && /^\/(rio\/)?login\b/i.test(pathname)) return 'logged_out';
+  if (site === 'linkedin') {
+    // LinkedIn's security check ("Let's do a quick security check") lives under /checkpoint/challenge.
+    if (/^\/checkpoint\/challenge/i.test(pathname)) return 'captcha';
+    if (/^\/(login|authwall|uas\/login|signup)\b/i.test(pathname)) return 'logged_out';
+  }
   const all = `${title} ${text}`;
   if (/captcha|are you a robot|unusual traffic|access denied/i.test(all)) return 'captcha';
   if (site !== 'naukri') {
@@ -30,12 +42,29 @@ export function detectPageState(site: PageSite, pathname: string, title: string,
 }
 
 /**
+ * Captures to drop. iimjobs first runs a search with the experience range from your profile (minexp=7&maxexp=10)
+ * before the unfiltered one; you asked for no experience filter, so any iimjobs search with a range is ignored.
+ */
+export function ignoredCapture(site: PageSite, url: string): boolean {
+  if (site !== 'iimjobs') return false;
+  try {
+    const q = new URL(url, 'https://gladiator.iimjobs.com').searchParams;
+    return Number(q.get('minexp') ?? 0) > 0 || Number(q.get('maxexp') ?? 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Feed name for a hook capture. Naukri feeds are named by the parser from the response; Indeed's by page;
- * Instahyre's and Wellfound's are all searches.
+ * the other sites' captures are all searches.
  */
 export function feedForCapture(site: PageSite, pathname: string, url: string): string | null {
   if (site === 'instahyre') return 'instahyre-search';
   if (site === 'wellfound') return 'wellfound-search';
+  if (site === 'cutshort') return 'cutshort-search';
+  if (site === 'foundit') return 'foundit-search';
+  if (site === 'iimjobs') return 'iimjobs-search';
   if (site === 'indeed') return pathname.startsWith('/jobs') ? 'indeed-search' : 'indeed-home';
   return SEARCH_API_RE.test(url) ? 'search' : null;
 }
@@ -91,4 +120,29 @@ export function findSavedSearchLink(root: ParentNode, name: string): HTMLElement
     if (link) return link;
   }
   return null;
+}
+
+export interface LinkedInCard {
+  jobId: string;
+  lines: string[];
+}
+
+const LINKEDIN_CARD_KEY = /^job-card-component-ref-(\d{5,20})$/;
+
+/**
+ * The LinkedIn job cards rendered on the page: `div[componentkey="job-card-component-ref-<jobId>"]`, with the
+ * visible text split into lines. Cards LinkedIn has not rendered yet (far down the list) are skipped.
+ */
+export function linkedInCardsFrom(root: ParentNode): LinkedInCard[] {
+  const cards: LinkedInCard[] = [];
+  const seen = new Set<string>();
+  for (const el of root.querySelectorAll<HTMLElement>('[componentkey^="job-card-component-ref-"]')) {
+    const jobId = LINKEDIN_CARD_KEY.exec(el.getAttribute('componentkey') ?? '')?.[1];
+    if (!jobId || seen.has(jobId)) continue;
+    const lines = (el.innerText ?? '').split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 60);
+    if (lines.length < 3) continue;
+    seen.add(jobId);
+    cards.push({ jobId, lines: lines.map((s) => s.slice(0, 500)) });
+  }
+  return cards;
 }

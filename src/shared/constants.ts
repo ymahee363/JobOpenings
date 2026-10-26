@@ -21,6 +21,15 @@ export const INSTAHYRE_CAPTURE_URL_RE = /\/api\/v1\/job_search(?:\?|$)/;
 /** Wellfound GraphQL calls; the hook forwards only responses that list jobs (`highlightedJobListings`). */
 export const WELLFOUND_CAPTURE_URL_RE = /^(?:https:\/\/wellfound\.com)?\/graphql(?:\?|$)/;
 
+/** Cutshort job lists (`/findjobs/q?page=N&matchesfor=...`), requested as the jobs page loads and scrolls. */
+export const CUTSHORT_CAPTURE_URL_RE = /^(?:https:\/\/cutshort\.io)?\/findjobs\/q(?:\?|$)/;
+
+/** foundit search results (`/home/api/searchResultsPage?...`), requested as a search page loads. */
+export const FOUNDIT_CAPTURE_URL_RE = /^(?:https:\/\/www\.foundit\.in)?\/home\/api\/searchResultsPage(?:\?|$)/;
+
+/** iimjobs search results, fetched by the page from its API host (`gladiator.iimjobs.com/job/search?...`). */
+export const IIMJOBS_CAPTURE_URL_RE = /^https:\/\/gladiator\.iimjobs\.com\/job\/search(?:\?|$)/;
+
 /** Job-search results; their jobs are stored under the `search` feed. */
 export const SEARCH_API_RE = /\/jobapi\/v\d+\/search\?/;
 

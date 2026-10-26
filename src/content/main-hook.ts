@@ -1,12 +1,13 @@
 /**
  * Runs in the page's own JS world (MAIN) at document_start on the job sites.
  * It wraps fetch and XHR so we can read the job responses the page already requests: Naukri's recom-jobs
- * and search calls, Indeed's GraphQL job cards, Instahyre's job-search results and Wellfound's GraphQL job
- * search. On Indeed it also forwards the job lists the page embeds in `window.mosaic.providerData`.
+ * and search calls, Indeed's GraphQL job cards, Instahyre's job-search results, Wellfound's GraphQL job
+ * search, Cutshort's job lists, foundit's search results and iimjobs' search results. On Indeed it also forwards the job lists the page embeds in `window.mosaic.providerData`.
  * It never sends requests of its own and never changes what the page receives.
  */
 import {
-  CAPTURE_URL_RE, HOOK_TAG, INDEED_CAPTURE_URL_RE, INSTAHYRE_CAPTURE_URL_RE, MAX_CAPTURE_CHARS, WELLFOUND_CAPTURE_URL_RE,
+  CAPTURE_URL_RE, CUTSHORT_CAPTURE_URL_RE, FOUNDIT_CAPTURE_URL_RE, HOOK_TAG, IIMJOBS_CAPTURE_URL_RE, INDEED_CAPTURE_URL_RE, INSTAHYRE_CAPTURE_URL_RE, MAX_CAPTURE_CHARS,
+  WELLFOUND_CAPTURE_URL_RE,
 } from '../shared/constants';
 import { indeedModelsFrom, siteOfHost } from '../shared/page';
 
@@ -14,6 +15,9 @@ const site = siteOfHost(location.hostname);
 const isIndeed = site === 'indeed';
 const CAPTURE_RE = {
   naukri: CAPTURE_URL_RE, indeed: INDEED_CAPTURE_URL_RE, instahyre: INSTAHYRE_CAPTURE_URL_RE, wellfound: WELLFOUND_CAPTURE_URL_RE,
+  cutshort: CUTSHORT_CAPTURE_URL_RE, foundit: FOUNDIT_CAPTURE_URL_RE, iimjobs: IIMJOBS_CAPTURE_URL_RE,
+  // The manifest never injects this hook on LinkedIn (its jobs are read from the page); match nothing anyway.
+  linkedin: /(?!)/,
 };
 const captureRe = CAPTURE_RE[site];
 

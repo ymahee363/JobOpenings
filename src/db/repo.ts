@@ -99,7 +99,7 @@ const BackupSchema = z.object({
   jobs: z.array(z.object({
     jobId: z.string().min(1),
     // Backups made before Indeed support have no site; they are all Naukri jobs.
-    site: z.enum(['naukri', 'indeed', 'instahyre', 'wellfound']).default('naukri'),
+    site: z.enum(['naukri', 'indeed', 'instahyre', 'wellfound', 'linkedin', 'cutshort', 'foundit', 'iimjobs']).default('naukri'),
     title: z.string(),
     company: z.string(),
     location: z.string(),
@@ -117,7 +117,7 @@ const BackupSchema = z.object({
     lastSeenAt: z.number(),
     sourceFeeds: z.array(z.string()),
     applyType: z.enum(['easy_apply', 'company_site', 'unknown']),
-    naukriUrl: z.string().refine((u) => safeJobPageUrl(u) === u, 'naukriUrl must be an https naukri.com, indeed.com, instahyre.com or wellfound.com link'),
+    naukriUrl: z.string().refine((u) => safeJobPageUrl(u) === u, 'naukriUrl must be an https link on a supported job site'),
     externalUrl: z.string().nullable().refine((u) => u === null || safeExternalUrl(u) === u, 'externalUrl must be https'),
     titleCompanyKey: z.string(),
   })),

@@ -4,7 +4,9 @@ import {
   canAppLoad, clampRefreshMinutes, DEFAULT_SAFETY, dwellMs, DWELL_JITTER_MS, DWELL_MIN_MS, halt, inActiveHours,
   nextDailyAt, nextRefreshAt, pageGapMs, pause, recordAppLoad, refreshJitterMs, resume,
 } from '../src/shared/safety';
-import { CAPTURE_URL_RE, INSTAHYRE_CAPTURE_URL_RE, SEARCH_API_RE, WELLFOUND_CAPTURE_URL_RE } from '../src/shared/constants';
+import {
+  CAPTURE_URL_RE, CUTSHORT_CAPTURE_URL_RE, FOUNDIT_CAPTURE_URL_RE, IIMJOBS_CAPTURE_URL_RE, INSTAHYRE_CAPTURE_URL_RE, SEARCH_API_RE, WELLFOUND_CAPTURE_URL_RE,
+} from '../src/shared/constants';
 import {
   instahyreJobUrl, jobIdFromJobPath, naukriJobUrl, RECOMMENDED_JOBS_URL, safeExternalUrl, safeJobPageUrl, wellfoundJobUrl,
 } from '../src/shared/url';
@@ -88,6 +90,7 @@ describe('Wellfound job links', () => {
     expect(wellfoundJobUrl('4875034', 'product-manager')).toBe('https://wellfound.com/jobs/4875034-product-manager');
     expect(wellfoundJobUrl('4875034', '../x')).toBe('https://wellfound.com/jobs/4875034');
     expect(safeJobPageUrl('https://wellfound.com/jobs/4875034-product-manager')).toBe('https://wellfound.com/jobs/4875034-product-manager');
+    expect(safeJobPageUrl('https://www.linkedin.com/jobs/view/4482930457/')).toBe('https://www.linkedin.com/jobs/view/4482930457/');
   });
 });
 
@@ -109,6 +112,25 @@ describe('capture URLs', () => {
     expect(INSTAHYRE_CAPTURE_URL_RE.test('https://www.instahyre.com/api/v1/job_search?limit=35&offset=35')).toBe(true);
     expect(INSTAHYRE_CAPTURE_URL_RE.test('/api/v1/job_search/443833')).toBe(false);
     expect(INSTAHYRE_CAPTURE_URL_RE.test('/api/v1/candidate_opportunities/candidate_matching?limit=30')).toBe(false);
+  });
+
+  it("captures iimjobs' search results from its API host only", () => {
+    expect(IIMJOBS_CAPTURE_URL_RE.test('https://gladiator.iimjobs.com/job/search?query=Product+Manager&page=0')).toBe(true);
+    expect(IIMJOBS_CAPTURE_URL_RE.test('https://gladiator.iimjobs.com/job/saved-jobs/count/')).toBe(false);
+    expect(IIMJOBS_CAPTURE_URL_RE.test('https://evil.example/job/search?q=1')).toBe(false);
+  });
+
+  it("captures foundit's search results only", () => {
+    expect(FOUNDIT_CAPTURE_URL_RE.test('https://www.foundit.in/home/api/searchResultsPage?start=0&limit=20')).toBe(true);
+    expect(FOUNDIT_CAPTURE_URL_RE.test('/home/api/searchResultsPage?start=20')).toBe(true);
+    expect(FOUNDIT_CAPTURE_URL_RE.test('/home/api/recentSearch')).toBe(false);
+  });
+
+  it("captures Cutshort's job lists only", () => {
+    expect(CUTSHORT_CAPTURE_URL_RE.test('/findjobs/q?page=2&matchesfor=621ce92d9b95180034a9b0e4')).toBe(true);
+    expect(CUTSHORT_CAPTURE_URL_RE.test('https://cutshort.io/findjobs/q')).toBe(true);
+    expect(CUTSHORT_CAPTURE_URL_RE.test('/findcompanies')).toBe(false);
+    expect(CUTSHORT_CAPTURE_URL_RE.test('https://evil.example/findjobs/q')).toBe(false);
   });
 
   it("captures Wellfound's own GraphQL endpoint only", () => {
@@ -229,6 +251,26 @@ describe('per-site refresh rules', () => {
   it('does not let a Naukri refresh block Indeed, or the other way round', () => {
     expect(canAppLoad(recordAppLoad(DEFAULT_SAFETY, NOW, 'naukri'), NOW + MIN, 'indeed')).toEqual({ ok: true });
     expect(canAppLoad(recordAppLoad(DEFAULT_SAFETY, NOW, 'indeed'), NOW + MIN, 'naukri')).toEqual({ ok: true });
+  });
+
+  it('gives iimjobs its own hourly floor', () => {
+    const s = recordAppLoad(DEFAULT_SAFETY, NOW, 'iimjobs');
+    expect(s.lastIimjobsLoadAt).toBe(NOW);
+    expect(canAppLoad(s, NOW + MIN, 'iimjobs')).toMatchObject({ ok: false, detail: 'iimjobs: at most one app refresh an hour' });
+  });
+
+  it('gives foundit its own hourly floor', () => {
+    const s = recordAppLoad(DEFAULT_SAFETY, NOW, 'foundit');
+    expect(s.lastFounditLoadAt).toBe(NOW);
+    expect(canAppLoad(s, NOW + MIN, 'cutshort')).toEqual({ ok: true });
+    expect(canAppLoad(s, NOW + MIN, 'foundit')).toMatchObject({ ok: false, detail: 'foundit: at most one app refresh an hour' });
+  });
+
+  it('gives Cutshort its own hourly floor', () => {
+    const s = recordAppLoad(DEFAULT_SAFETY, NOW, 'cutshort');
+    expect(s.lastCutshortLoadAt).toBe(NOW);
+    expect(canAppLoad(s, NOW + MIN, 'wellfound')).toEqual({ ok: true });
+    expect(canAppLoad(s, NOW + MIN, 'cutshort')).toMatchObject({ ok: false, detail: 'Cutshort: at most one app refresh an hour' });
   });
 
   it('gives Wellfound its own hourly floor', () => {

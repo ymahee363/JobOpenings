@@ -4,7 +4,11 @@ import { BoardMessage, CollectorMessage, DB_CHANGED, type RefreshResponse } from
 import { parseCapture, type CaptureResult } from '../shared/parse';
 import { parseIndeedCapture } from '../shared/parse-indeed';
 import { parseInstahyreCapture } from '../shared/parse-instahyre';
+import { parseLinkedInCapture } from '../shared/parse-linkedin';
 import { parseWellfoundCapture } from '../shared/parse-wellfound';
+import { parseCutshortCapture } from '../shared/parse-cutshort';
+import { parseFounditCapture } from '../shared/parse-foundit';
+import { parseIimjobsCapture } from '../shared/parse-iimjobs';
 import {
   canAppLoad, dwellMs, halt, inActiveHours, nextDailyAt, nextRefreshAt, pageGapMs, pause, recordAppLoad,
   REFRESH_TIMEOUT_MS, resume,
@@ -12,7 +16,7 @@ import {
 import { runSources, type LoadOutcome } from '../shared/refresh';
 import { effectiveSources, siteOfUrl, type Source } from '../shared/sources';
 import { load, save, update } from '../shared/store';
-import type { Site } from '../shared/types';
+import type { AppSite, Site } from '../shared/types';
 
 const db = getDb();
 const BOARD_URL = chrome.runtime.getURL('board.html');
@@ -22,7 +26,9 @@ const ALARM_REFRESH = 'refresh';
 const ALARM_INDEED_DAILY = 'indeed-daily';
 const ALARM_PURGE = 'purge';
 const LOGGED_OUT = 'Logged out of Naukri';
-const SITE_NAME: Record<Site, string> = { naukri: 'Naukri', indeed: 'Indeed', instahyre: 'Instahyre', wellfound: 'Wellfound' };
+const SITE_NAME: Record<Site, string> = {
+  naukri: 'Naukri', indeed: 'Indeed', instahyre: 'Instahyre', wellfound: 'Wellfound', linkedin: 'LinkedIn', cutshort: 'Cutshort', foundit: 'foundit', iimjobs: 'iimjobs',
+};
 
 /** The site a content-script message came from, judged by the sender's URL rather than the message. */
 function siteOfSender(url: string | undefined): Site | null {
@@ -30,6 +36,10 @@ function siteOfSender(url: string | undefined): Site | null {
   if (url?.startsWith('https://in.indeed.com/')) return 'indeed';
   if (url?.startsWith('https://www.instahyre.com/')) return 'instahyre';
   if (url?.startsWith('https://wellfound.com/')) return 'wellfound';
+  if (url?.startsWith('https://cutshort.io/')) return 'cutshort';
+  if (url?.startsWith('https://www.foundit.in/')) return 'foundit';
+  if (url?.startsWith('https://www.iimjobs.com/')) return 'iimjobs';
+  if (url?.startsWith('https://www.linkedin.com/')) return 'linkedin';
   return null;
 }
 
@@ -100,6 +110,10 @@ function parseFor(msg: Capture, now: number): CaptureResult & { appliedJobIds?: 
     case 'indeed': return parseIndeedCapture(msg.payload, msg.feed ?? 'indeed-home', now);
     case 'instahyre': return parseInstahyreCapture(msg.payload, msg.feed ?? 'instahyre-search', now);
     case 'wellfound': return parseWellfoundCapture(msg.payload, msg.feed ?? 'wellfound-search', now);
+    case 'cutshort': return parseCutshortCapture(msg.payload, msg.feed ?? 'cutshort-search', now);
+    case 'foundit': return parseFounditCapture(msg.payload, msg.feed ?? 'foundit-search', now);
+    case 'iimjobs': return parseIimjobsCapture(msg.payload, msg.feed ?? 'iimjobs-search', now);
+    case 'linkedin': return parseLinkedInCapture(msg.payload, msg.feed ?? 'linkedin', now);
     default: return parseCapture(msg.payload, msg.feed, now);
   }
 }
@@ -160,14 +174,15 @@ const pendingRefresh = new Map<number, PendingRefresh>();
 
 /**
  * What started a refresh, and which sites it covers: the Refresh button does all of them, Naukri's timer does
- * Naukri, and the others refresh once a day and when you open the board.
+ * Naukri, and the others refresh once a day and when you open the board. LinkedIn is in none of them: the app
+ * never opens it, and its jobs come only from pages you open.
  */
 type Trigger = 'manual' | 'scheduled' | 'daily' | 'board';
-const SITES_FOR: Record<Trigger, Site[]> = {
-  manual: ['naukri', 'indeed', 'instahyre', 'wellfound'],
+const SITES_FOR: Record<Trigger, AppSite[]> = {
+  manual: ['naukri', 'indeed', 'instahyre', 'wellfound', 'cutshort', 'foundit', 'iimjobs'],
   scheduled: ['naukri'],
-  daily: ['indeed', 'instahyre', 'wellfound'],
-  board: ['indeed', 'instahyre', 'wellfound'],
+  daily: ['indeed', 'instahyre', 'wellfound', 'cutshort', 'foundit', 'iimjobs'],
+  board: ['indeed', 'instahyre', 'wellfound', 'cutshort', 'foundit', 'iimjobs'],
 };
 
 /** Refreshes run one at a time; a new one waits for the current one to finish. */
@@ -201,6 +216,8 @@ async function isHalted(): Promise<boolean> {
  * random extra (a different one each page), then close it. A halt closes it at once.
  */
 async function loadAndCapture(url: string, source: Source): Promise<{ result: LoadOutcome; added: number }> {
+  // Belt and braces: sources never accept LinkedIn, but make sure the app can never open it.
+  if (/(^|\.)linkedin\.com$/i.test(new URL(url).hostname)) return { result: 'timeout', added: 0 };
   const openedAt = Date.now();
   const stayMs = dwellMs(Math.random);
   const tab = await chrome.tabs.create({ url, active: false });
@@ -247,7 +264,7 @@ async function runRefresh(trigger: Trigger): Promise<RefreshResponse> {
 async function doRefresh(trigger: Trigger): Promise<RefreshResponse> {
   const now = Date.now();
   const safety = await load('safety');
-  const allowed: Site[] = [];
+  const allowed: AppSite[] = [];
   const skipped = new Set<string>();
   let retryAt: number | undefined;
   for (const site of SITES_FOR[trigger]) {
@@ -325,9 +342,14 @@ async function handlePageState(site: Site, state: 'ok' | 'logged_out' | 'captcha
     await haltAll(site);
     return;
   }
-  const now = Date.now();
-  await update('safety', (s) => pause(s, now, LOGGED_OUT));
-  await log(db, 'warn', `${LOGGED_OUT}; app refresh paused for 1 hour`);
+  // The logout pause holds Naukri refreshes only, so only a Naukri logout sets it.
+  if (site === 'naukri') {
+    const now = Date.now();
+    await update('safety', (s) => pause(s, now, LOGGED_OUT));
+    await log(db, 'warn', `${LOGGED_OUT}; app refresh paused for 1 hour`);
+  } else {
+    await log(db, 'warn', `Logged out of ${SITE_NAME[site]}; log in to get its jobs again`);
+  }
   if (tabId !== undefined) pendingRefresh.get(tabId)?.resolve(state);
 }
 

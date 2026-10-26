@@ -1,7 +1,7 @@
 {
   "_help": [
     "Default links the Refresh button (and auto-refresh) loads, in order. The easy way to add links is the board's Sources panel; once you edit the list there, this file is no longer used (Reset to sources.json defaults brings it back). After editing this file, run `npm run build` and reload the extension.",
-    "Links must be on www.naukri.com, in.indeed.com, www.instahyre.com or wellfound.com.",
+    "Links must be on www.naukri.com, in.indeed.com, www.instahyre.com, wellfound.com, cutshort.io, www.foundit.in or www.iimjobs.com. LinkedIn links are refused: the app never opens LinkedIn.",
     "Instahyre ignores the filters in a search link and shows recommended jobs, so an Instahyre entry opens the opportunities page and clicks the saved search named in \"savedSearch\" (as listed under Saved Searches on Instahyre; case does not matter). Only the first page of results is read.",
     "Wellfound's https://wellfound.com/jobs opens with the filters you last set there (role, location, job type), so set them on Wellfound. Only the first page of results is read.",
     "maxPages: how many result pages of a search to load (default 1). Later pages load only while the previous page found new jobs.",
@@ -30,6 +30,19 @@
     {
       "name": "Wellfound jobs (your saved filters)",
       "url": "https://wellfound.com/jobs"
+    },
+    {
+      "name": "Cutshort: jobs matching my profile",
+      "url": "https://cutshort.io/profile/all-jobs?matchesfor=621ce92d9b95180034a9b0e4"
+    },
+    {
+      "name": "foundit: product manager, Bengaluru, last 3 days",
+      "url": "https://www.foundit.in/search/product-manager-jobs-in-bengaluru-bangalore?start=1&limit=20&query=product+manager&location=bengaluru+%2F+bangalore&queryDerived=true&jobFreshness=3",
+      "maxPages": 5
+    },
+    {
+      "name": "iimjobs: product manager (AI search)",
+      "url": "https://www.iimjobs.com/ai-search?query=product-manager"
     }
   ]
 }

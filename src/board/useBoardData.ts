@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getDb } from '../db/db';
-import { DEFAULT_FILTERS, DEFAULT_HIDDEN_TITLE_WORDS, type Filters } from '../shared/board';
+import { DEFAULT_FILTERS, DEFAULT_HIDDEN_TITLE_WORDS, normalizeFilters, type Filters } from '../shared/board';
 import { DB_CHANGED } from '../shared/messages';
 import { DEFAULT_SAFETY, type SafetyState } from '../shared/safety';
 import { load, save, type PendingApply } from '../shared/store';
@@ -49,7 +49,9 @@ export function useBoardData() {
     const [health, safety, settings, filters, pendingApply, hiddenTitleWords] = await Promise.all([
       load('health'), load('safety'), load('settings'), load('filters'), load('pendingApply'), load('hiddenTitleWords'),
     ]);
-    if (mounted.current) setData((d) => ({ ...d, health, safety, settings, filters, pendingApply, hiddenTitleWords }));
+    if (mounted.current) {
+      setData((d) => ({ ...d, health, safety, settings, filters: normalizeFilters(filters), pendingApply, hiddenTitleWords }));
+    }
   }, []);
 
   useEffect(() => {

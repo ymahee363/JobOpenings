@@ -3,7 +3,12 @@ import type { ApplyType, Job, JobStatus, Site, Status } from './types';
 
 const DAY = 86_400_000;
 
-export const SITE_LABEL: Record<Site, string> = { naukri: 'Naukri', indeed: 'Indeed', instahyre: 'Instahyre', wellfound: 'Wellfound' };
+export const SITE_LABEL: Record<Site, string> = {
+  naukri: 'Naukri', indeed: 'Indeed', instahyre: 'Instahyre', wellfound: 'Wellfound', linkedin: 'LinkedIn', cutshort: 'Cutshort', foundit: 'foundit',
+  iimjobs: 'iimjobs',
+};
+/** Every site, in the order the site filter lists them. */
+export const SITES = Object.keys(SITE_LABEL) as Site[];
 export const MAYBE_CLOSED_AFTER_MS = 7 * DAY;
 
 export interface BoardRow extends Job {
@@ -15,7 +20,8 @@ export interface BoardRow extends Job {
 }
 
 export interface Filters {
-  site: Site | 'all';
+  /** Sites to show; empty shows every site. */
+  sites: Site[];
   postedWithinDays: number | null;
   expYears: number | null;
   location: string;
@@ -27,7 +33,7 @@ export interface Filters {
 }
 
 export const DEFAULT_FILTERS: Filters = {
-  site: 'all',
+  sites: [],
   postedWithinDays: 7,
   expYears: null,
   location: '',
@@ -68,7 +74,7 @@ function terms(csv: string): string[] {
 }
 
 export function matchesFilters(row: BoardRow, f: Filters, now: number): boolean {
-  if (f.site !== 'all' && row.site !== f.site) return false;
+  if (f.sites.length && !f.sites.includes(row.site)) return false;
   if (f.postedWithinDays !== null && now - row.postedAt > f.postedWithinDays * DAY) return false;
   if (f.expYears !== null) {
     if (row.expMin !== null && f.expYears < row.expMin) return false;
@@ -161,7 +167,7 @@ export function computeStats(rows: BoardRow[], now: number): Stats {
     median = Math.round(median * 10) / 10;
   }
   const byType: Record<ApplyType, number> = { easy_apply: 0, company_site: 0, unknown: 0 };
-  const bySite: Record<Site, number> = { naukri: 0, indeed: 0, instahyre: 0, wellfound: 0 };
+  const bySite: Record<Site, number> = { naukri: 0, indeed: 0, instahyre: 0, wellfound: 0, linkedin: 0, cutshort: 0, foundit: 0, iimjobs: 0 };
   const byFeed: Record<string, number> = {};
   for (const r of rows) {
     byType[r.applyType] += 1;
@@ -196,4 +202,21 @@ export function appliedCsv(rows: BoardRow[]): string {
       r.externalUrl ?? r.naukriUrl,
     ].map(csvCell).join(','));
   return [header.map(csvCell).join(','), ...lines].join('\r\n');
+}
+
+/**
+ * Saved filters from older versions kept one `site` ('all' or a site); turn it into `sites`. Unknown sites are
+ * dropped, and choosing every site is the same as choosing none.
+ */
+export function normalizeFilters(saved: Filters & { site?: unknown }): Filters {
+  const { site, ...rest } = saved;
+  const sites = Array.isArray(rest.sites) ? rest.sites : typeof site === 'string' && site !== 'all' ? [site] : [];
+  const known = SITES.filter((s) => (sites as unknown[]).includes(s));
+  return { ...rest, sites: known.length === SITES.length ? [] : known };
+}
+
+/** Tick or untick one site in the filter. */
+export function toggleSite(sites: Site[], site: Site, on: boolean): Site[] {
+  const next = SITES.filter((s) => (s === site ? on : sites.includes(s)));
+  return next.length === SITES.length ? [] : next;
 }

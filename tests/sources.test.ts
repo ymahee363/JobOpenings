@@ -10,8 +10,19 @@ describe('sources.json', () => {
     const { sources, errors } = readSources(file);
     expect(errors).toEqual([]);
     expect(sources.map((s) => new URL(s.url).hostname))
-      .toEqual(['www.naukri.com', 'www.naukri.com', 'in.indeed.com', 'www.instahyre.com', 'wellfound.com']);
+      .toEqual(['www.naukri.com', 'www.naukri.com', 'in.indeed.com', 'www.instahyre.com', 'wellfound.com', 'cutshort.io', 'www.foundit.in', 'www.iimjobs.com']);
     expect(sources[3]!.savedSearch).toBe('PM BLR WFH');
+  });
+});
+
+describe('LinkedIn links', () => {
+  it('are never accepted as sources, so refresh can never open LinkedIn', () => {
+    const url = 'https://www.linkedin.com/jobs/search-results/?keywords=%22Product%20manager%22&f_TPR=r86400&f_AL=true';
+    const r = parseSource({ url });
+    expect(r).toMatchObject({ ok: false, error: expect.stringMatching(/the app never opens LinkedIn/) });
+    expect(parseSource({ url: 'https://linkedin.com/jobs/' }).ok).toBe(false);
+    expect(addSource([], { url }).ok).toBe(false);
+    expect(readSources({ sources: [{ url }] }).sources).toEqual([]);
   });
 });
 
@@ -93,6 +104,13 @@ describe('sourcePageUrl', () => {
     expect(sourcePageUrl('https://in.indeed.com/jobs?q=pm', 3)).toBe('https://in.indeed.com/jobs?q=pm&sort=date&start=20');
   });
 
+  it('pages foundit searches by page number in start', () => {
+    const url = 'https://www.foundit.in/search/product-manager-jobs-in-bengaluru-bangalore?start=1&limit=20&query=product+manager&jobFreshness=3';
+    expect(sourcePageUrl(url, 1)).toBe(url);
+    expect(sourcePageUrl(url, 3)).toBe(url.replace('start=1', 'start=3'));
+    expect(sourcePageUrl('https://www.foundit.in/rio/recommended-jobs', 2)).toBeNull();
+  });
+
   it('loads non-search pages once, unchanged', () => {
     expect(sourcePageUrl('https://www.naukri.com/mnjuser/recommendedjobs', 1)).toBe('https://www.naukri.com/mnjuser/recommendedjobs');
     expect(sourcePageUrl('https://www.naukri.com/mnjuser/recommendedjobs', 2)).toBeNull();
@@ -161,7 +179,7 @@ describe('effectiveSources', () => {
     vi.stubGlobal('fetch', fetchMock);
     const r = await effectiveSources(null);
     expect(fetchMock).toHaveBeenCalledWith('chrome-extension://id/sources.json');
-    expect(r.sources).toHaveLength(5);
+    expect(r.sources).toHaveLength(8);
   });
 
   it('reports a missing or broken sources.json instead of throwing', async () => {

@@ -3,20 +3,24 @@
  * once you edit the list in the board's Sources panel, your copy in chrome.storage is used instead.
  */
 import { z } from 'zod';
-import type { Site } from './types';
+import type { AppSite } from './types';
 
 export const MAX_PAGES_PER_SOURCE = 20;
 
-export function siteOfUrl(url: URL): Site | null {
+/** The site of a link refresh may open, or null. LinkedIn is never one: it is read only from pages you open. */
+export function siteOfUrl(url: URL): AppSite | null {
   if (url.protocol !== 'https:') return null;
   if (url.hostname === 'www.naukri.com') return 'naukri';
   if (url.hostname === 'in.indeed.com') return 'indeed';
   if (url.hostname === 'www.instahyre.com') return 'instahyre';
   if (url.hostname === 'wellfound.com') return 'wellfound';
+  if (url.hostname === 'cutshort.io') return 'cutshort';
+  if (url.hostname === 'www.foundit.in') return 'foundit';
+  if (url.hostname === 'www.iimjobs.com') return 'iimjobs';
   return null;
 }
 
-function siteOf(raw: string): Site | null {
+function siteOf(raw: string): AppSite | null {
   try {
     return siteOfUrl(new URL(raw));
   } catch {
@@ -26,7 +30,10 @@ function siteOf(raw: string): Site | null {
 
 const Source = z.object({
   name: z.string().max(200).optional(),
-  url: z.string().refine((u) => siteOf(u) !== null, 'must be an https link on www.naukri.com, in.indeed.com, www.instahyre.com or wellfound.com'),
+  url: z.string()
+    .refine((u) => !/^https?:\/\/([a-z0-9-]+\.)*linkedin\.com(\/|$)/i.test(u.trim()),
+      'is a LinkedIn link: the app never opens LinkedIn. Open it yourself and the jobs you see are saved')
+    .refine((u) => siteOf(u) !== null, 'must be an https link on www.naukri.com, in.indeed.com, www.instahyre.com, wellfound.com, cutshort.io, www.foundit.in or www.iimjobs.com'),
   /**
    * Instahyre only: the name of a saved search to run once the page opens. Instahyre ignores the filters in a
    * pasted search link and shows recommended jobs instead, so refresh clicks the saved search.
@@ -60,9 +67,13 @@ function isIndeedSearch(url: URL): boolean {
   return url.pathname === '/jobs';
 }
 
+function isFounditSearch(url: URL): boolean {
+  return url.pathname.startsWith('/search/');
+}
+
 /**
  * The URL of result page `page` (1-based) of a source, sorted newest first unless the link sets a sort.
- * Naukri puts the page in the path (/product-manager-jobs-2); Indeed uses start=10, 20, …
+ * Naukri puts the page in the path (/product-manager-jobs-2); Indeed uses start=10, 20, …; foundit start=1, 2, …
  * Returns null when the source is not a paged search and page > 1.
  */
 export function sourcePageUrl(raw: string, page: number): string | null {
@@ -77,6 +88,11 @@ export function sourcePageUrl(raw: string, page: number): string | null {
     if (!url.searchParams.has('sort')) url.searchParams.set('sort', 'date');
     if (page > 1) url.searchParams.set('start', String((page - 1) * 10));
     else url.searchParams.delete('start');
+    return url.href;
+  }
+  // foundit's `start` is the page number (1, 2, …); its jobFreshness filter keeps results recent.
+  if (site === 'foundit' && isFounditSearch(url)) {
+    url.searchParams.set('start', String(page));
     return url.href;
   }
   return page === 1 ? url.href : null;

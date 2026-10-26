@@ -2,22 +2,22 @@
   "manifest_version": 3,
   "name": "Naukri Fast-Apply Board",
   "version": "0.1.0",
-  "description": "Your Naukri, Indeed, Instahyre and Wellfound openings, newest first, split into Easy Apply and Company Site tabs. Data stays on this device.",
+  "description": "Your Naukri, Indeed, Instahyre, Wellfound, Cutshort, foundit, iimjobs and LinkedIn openings, newest first, split into Easy Apply and Company Site tabs. Data stays on this device.",
   "minimum_chrome_version": "116",
   "permissions": ["storage", "alarms", "tabs", "notifications"],
-  "host_permissions": ["https://www.naukri.com/*", "https://in.indeed.com/*", "https://www.instahyre.com/*", "https://wellfound.com/*"],
+  "host_permissions": ["https://www.naukri.com/*", "https://in.indeed.com/*", "https://www.instahyre.com/*", "https://wellfound.com/*", "https://cutshort.io/*", "https://www.foundit.in/*", "https://www.iimjobs.com/*"],
   "background": { "service_worker": "service-worker.js", "type": "module" },
   "icons": { "16": "icon-16.png", "48": "icon-48.png", "128": "icon-128.png" },
   "action": { "default_title": "Open job board", "default_icon": { "16": "icon-16.png", "48": "icon-48.png" } },
   "content_scripts": [
     {
-      "matches": ["https://www.naukri.com/*", "https://in.indeed.com/*", "https://www.instahyre.com/*", "https://wellfound.com/*"],
+      "matches": ["https://www.naukri.com/*", "https://in.indeed.com/*", "https://www.instahyre.com/*", "https://wellfound.com/*", "https://cutshort.io/*", "https://www.foundit.in/*", "https://www.iimjobs.com/*"],
       "js": ["main-hook.js"],
       "run_at": "document_start",
       "world": "MAIN"
     },
     {
-      "matches": ["https://www.naukri.com/*", "https://in.indeed.com/*", "https://www.instahyre.com/*", "https://wellfound.com/*"],
+      "matches": ["https://www.naukri.com/*", "https://in.indeed.com/*", "https://www.instahyre.com/*", "https://wellfound.com/*", "https://cutshort.io/*", "https://www.foundit.in/*", "https://www.iimjobs.com/*", "https://www.linkedin.com/*"],
       "js": ["collector.js"],
       "run_at": "document_start"
     }

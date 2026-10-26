@@ -139,7 +139,7 @@ describe('backup', () => {
     await expect(importBackup(db, JSON.stringify(data))).rejects.toThrow(/https/);
     data.jobs[0].externalUrl = null;
     data.jobs[0].naukriUrl = 'https://indeed.com.evil.example/viewjob?jk=1';
-    await expect(importBackup(db, JSON.stringify(data))).rejects.toThrow(/naukri\.com, indeed\.com, instahyre\.com or wellfound\.com/);
+    await expect(importBackup(db, JSON.stringify(data))).rejects.toThrow(/supported job site/);
   });
 });
 
