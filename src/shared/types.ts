@@ -1,7 +1,7 @@
 export type ApplyType = 'easy_apply' | 'company_site' | 'unknown';
 export type Site = 'naukri' | 'indeed' | 'instahyre' | 'wellfound' | 'linkedin' | 'cutshort' | 'foundit' | 'iimjobs';
-/** Sites the app may open by itself on refresh. LinkedIn is read only from pages you open. */
-export type AppSite = Exclude<Site, 'linkedin'>;
+/** Sites the app may open by itself on refresh. */
+export type AppSite = Site;
 export type Status = 'new' | 'seen' | 'applied' | 'dismissed';
 
 /** A job as stored in the `jobs` table. Refreshes update it; they never touch status. */
@@ -41,6 +41,8 @@ export interface JobStatus {
   jobId: string;
   status: Status;
   statusAt: number;
+  /** Who applied, for applied jobs: you, or the iimjobs auto-apply agent. Missing means you. */
+  appliedBy?: 'me' | 'agent';
 }
 
 export interface LogEntry {

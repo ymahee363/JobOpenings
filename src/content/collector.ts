@@ -85,6 +85,8 @@ function watchLinkedIn(): void {
   };
   new MutationObserver(later).observe(document.body, { childList: true, subtree: true });
   later();
+  // LinkedIn loads cards as you scroll: a refresh tab is told the page is read after the scroll has had time to run.
+  setTimeout(() => send({ type: 'capture-done', url: location.href.slice(0, 2048) }), 20_000);
 }
 
 // 3. Page state.
@@ -92,19 +94,17 @@ function pageState(): 'ok' | 'logged_out' | 'captcha' {
   return detectPageState(site, location.pathname, document.title, document.body?.innerText.slice(0, 2_000) ?? '');
 }
 
-// 4. Applied detection on job pages. Unverified against a real apply: the board also asks "Applied?".
+// 4. Applied detection on Naukri job pages: only the job's own applied marker (`span#already-applied` reading
+// "Applied") counts. Text elsewhere on the page (similar-jobs cards, banners) can say "Applied" about other jobs.
 function watchForApplied(jobId: string): void {
   let reported = false;
   const check = (): boolean => {
     if (reported) return true;
-    const candidates = document.querySelectorAll<HTMLElement>('button, [id*="apply" i], [class*="apply" i]');
-    for (const el of candidates) {
-      const text = el.textContent?.trim() ?? '';
-      if (/^applied$/i.test(text) || /successfully applied|application (has been )?(sent|submitted)/i.test(text)) {
-        reported = true;
-        send({ type: 'applied-detected', jobId });
-        return true;
-      }
+    const el = document.getElementById('already-applied');
+    if (el && el.offsetParent !== null && /^applied$/i.test(el.textContent?.trim() ?? '')) {
+      reported = true;
+      send({ type: 'applied-detected', jobId });
+      return true;
     }
     return false;
   };

@@ -22,6 +22,8 @@ export interface SafetyState {
   lastFounditLoadAt: number | null;
   /** Last app refresh of iimjobs, from any trigger. */
   lastIimjobsLoadAt: number | null;
+  /** Last app refresh of LinkedIn, from any trigger. Missing in states saved before LinkedIn could be refreshed. */
+  lastLinkedinLoadAt?: number | null;
   /** Last run of the once-a-day refresh of Indeed, Instahyre and Wellfound. */
   lastIndeedDailyAt: number | null;
   /** A Naukri logout pause; it holds Naukri refreshes only. */
@@ -38,12 +40,12 @@ export const DEFAULT_SAFETY: SafetyState = {
   pausedUntil: null, pauseReason: null, haltedAt: null, haltReason: null,
 };
 
-type SiteName = 'naukri' | 'indeed' | 'instahyre' | 'wellfound' | 'cutshort' | 'foundit' | 'iimjobs'; // AppSite: LinkedIn is never opened by the app
+type SiteName = 'naukri' | 'indeed' | 'instahyre' | 'wellfound' | 'cutshort' | 'foundit' | 'iimjobs' | 'linkedin';
 type HourlySite = Exclude<SiteName, 'naukri'>;
 
 /** The sites refreshed at most hourly, with where each one's last app refresh is kept. */
 type HourlyKey = 'lastIndeedLoadAt' | 'lastInstahyreLoadAt' | 'lastWellfoundLoadAt' | 'lastCutshortLoadAt' | 'lastFounditLoadAt'
-  | 'lastIimjobsLoadAt';
+  | 'lastIimjobsLoadAt' | 'lastLinkedinLoadAt';
 const HOURLY: Record<HourlySite, { key: HourlyKey; name: string }> = {
   indeed: { key: 'lastIndeedLoadAt', name: 'Indeed' },
   instahyre: { key: 'lastInstahyreLoadAt', name: 'Instahyre' },
@@ -51,6 +53,7 @@ const HOURLY: Record<HourlySite, { key: HourlyKey; name: string }> = {
   cutshort: { key: 'lastCutshortLoadAt', name: 'Cutshort' },
   foundit: { key: 'lastFounditLoadAt', name: 'foundit' },
   iimjobs: { key: 'lastIimjobsLoadAt', name: 'iimjobs' },
+  linkedin: { key: 'lastLinkedinLoadAt', name: 'LinkedIn' },
 };
 
 export type LoadDecision =

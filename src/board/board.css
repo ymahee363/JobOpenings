@@ -140,7 +140,9 @@ input[type="search"] { width: 170px; }
 .row-company { color: var(--muted); }
 .row-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--muted); font-size: 13px; margin-top: 4px; }
 .row-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-.row-actions { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+/* Two columns of compact actions keep a card about as tall as its text, instead of four stacked buttons. */
+.row-actions { display: grid; grid-template-columns: repeat(2, minmax(0, auto)); gap: 6px; flex-shrink: 0; align-content: start; }
+.row-actions .btn { padding: 5px 10px; font-size: 13px; white-space: nowrap; }
 .chip, .tag { font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
 .tag-new { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 .word-chips { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; padding: 0; }
@@ -169,8 +171,50 @@ input[type="search"] { width: 170px; }
 
 @media (max-width: 640px) {
   .row { flex-direction: column; }
-  .row-actions { flex-direction: row; flex-wrap: wrap; }
+  .row-actions { display: flex; flex-wrap: wrap; }
   input[type="search"] { width: 100%; }
   .filters label { flex: 1 1 140px; }
   .prompt { bottom: 96px; }
 }
+
+/* Auto-apply agent */
+.status-off { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
+.tag-agent { background: var(--surface); color: var(--text); border-color: var(--accent); }
+.panel.agent h3 { font-size: 14px; margin: 16px 0 4px; }
+.agent-rules { display: flex; flex-wrap: wrap; gap: 0 16px; }
+.agent-rules label { min-width: 240px; }
+.agent-today { font-size: 13px; margin: 8px 0; }
+.agent-answers, .agent-list { margin: 6px 0; padding-left: 18px; font-size: 13px; }
+.agent-answers { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.agent-answers li { display: flex; gap: 8px; align-items: center; }
+.agent-list li { margin: 6px 0; }
+.warn-text { color: var(--warn-text); }
+.agent-sites { border: 0; padding: 0; margin: 8px 0; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.agent-sites legend { float: left; margin-right: 8px; font-size: 13px; color: var(--muted); }
+.agent-hours { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.agent-hours label { margin: 4px 0; }
+.agent-sites label.muted { color: var(--muted); }
+
+/* Profile panel (AI apply) */
+.profile label.wide, .profile textarea.wide { display: block; width: 100%; }
+.profile textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: 0.9em; }
+.profile h4 { margin: 8px 0 4px; }
+.ai-url { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ai-url input { flex: 1; min-width: 240px; }
+
+/* Drag and drop: a job row dragged onto a tab moves it there. */
+.row[draggable="true"] { cursor: grab; }
+.row[draggable="true"]:active { cursor: grabbing; }
+.tab.drop-target { outline: 2px dashed currentColor; outline-offset: -3px; background: rgba(37, 99, 235, 0.12); }
+
+
+/* "Sign in once": company sites waiting for a sign-in. */
+.panel.signin summary { cursor: pointer; }
+.signin-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.signin-list li { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; }
+.signin-site { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.signin-site .hint { margin: 0; }
+
+.ats-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0; }
+.ats-chips .chip { cursor: pointer; background: transparent; color: var(--text); }
+.ats-chips .chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }

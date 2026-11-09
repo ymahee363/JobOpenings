@@ -7,7 +7,7 @@ import type { AppSite } from './types';
 
 export const MAX_PAGES_PER_SOURCE = 20;
 
-/** The site of a link refresh may open, or null. LinkedIn is never one: it is read only from pages you open. */
+/** The site of a link refresh reads jobs from, or null for any other link (saved, but refresh cannot read it yet). */
 export function siteOfUrl(url: URL): AppSite | null {
   if (url.protocol !== 'https:') return null;
   if (url.hostname === 'www.naukri.com') return 'naukri';
@@ -17,6 +17,7 @@ export function siteOfUrl(url: URL): AppSite | null {
   if (url.hostname === 'cutshort.io') return 'cutshort';
   if (url.hostname === 'www.foundit.in') return 'foundit';
   if (url.hostname === 'www.iimjobs.com') return 'iimjobs';
+  if (url.hostname === 'www.linkedin.com' || url.hostname === 'linkedin.com') return 'linkedin';
   return null;
 }
 
@@ -30,10 +31,13 @@ function siteOf(raw: string): AppSite | null {
 
 const Source = z.object({
   name: z.string().max(200).optional(),
-  url: z.string()
-    .refine((u) => !/^https?:\/\/([a-z0-9-]+\.)*linkedin\.com(\/|$)/i.test(u.trim()),
-      'is a LinkedIn link: the app never opens LinkedIn. Open it yourself and the jobs you see are saved')
-    .refine((u) => siteOf(u) !== null, 'must be an https link on www.naukri.com, in.indeed.com, www.instahyre.com, wellfound.com, cutshort.io, www.foundit.in or www.iimjobs.com'),
+  url: z.string().max(4096).refine((u) => {
+    try {
+      return new URL(u.trim()).protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }, 'must be an https link'),
   /**
    * Instahyre only: the name of a saved search to run once the page opens. Instahyre ignores the filters in a
    * pasted search link and shows recommended jobs instead, so refresh clicks the saved search.

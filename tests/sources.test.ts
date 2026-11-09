@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import file from '../sources.json';
-import {
+import { siteOfUrl,
   addSource, clampPages, effectiveSources, fetchDefaultSources, MAX_PAGES_PER_SOURCE, moveSource, parseSource, readSources,
   removeSource, sourcePageUrl, updateSource, type Source,
 } from '../src/shared/sources';
@@ -15,14 +15,17 @@ describe('sources.json', () => {
   });
 });
 
-describe('LinkedIn links', () => {
-  it('are never accepted as sources, so refresh can never open LinkedIn', () => {
+describe('LinkedIn and other links', () => {
+  it('accepts LinkedIn search links as refreshable sources', () => {
     const url = 'https://www.linkedin.com/jobs/search-results/?keywords=%22Product%20manager%22&f_TPR=r86400&f_AL=true';
-    const r = parseSource({ url });
-    expect(r).toMatchObject({ ok: false, error: expect.stringMatching(/the app never opens LinkedIn/) });
-    expect(parseSource({ url: 'https://linkedin.com/jobs/' }).ok).toBe(false);
-    expect(addSource([], { url }).ok).toBe(false);
-    expect(readSources({ sources: [{ url }] }).sources).toEqual([]);
+    expect(parseSource({ url }).ok).toBe(true);
+    expect(siteOfUrl(new URL(url))).toBe('linkedin');
+    expect(readSources({ sources: [{ url }] }).sources).toHaveLength(1);
+  });
+
+  it('accepts any other https link', () => {
+    expect(addSource([], { url: 'https://careers.example.com/jobs?q=product' }).ok).toBe(true);
+    expect(siteOfUrl(new URL('https://careers.example.com/jobs'))).toBeNull();
   });
 });
 
@@ -31,7 +34,7 @@ describe('Wellfound sources', () => {
     expect(parseSource({ url: 'https://wellfound.com/jobs' })).toEqual({
       ok: true, source: { url: 'https://wellfound.com/jobs', maxPages: 1, enabled: true },
     });
-    expect(parseSource({ url: 'https://www.wellfound.com/jobs' }).ok).toBe(false);
+    expect(siteOfUrl(new URL('https://www.wellfound.com/jobs'))).toBeNull();
     expect(sourcePageUrl('https://wellfound.com/jobs', 2)).toBeNull();
   });
 });
@@ -69,7 +72,7 @@ describe('readSources', () => {
       sources: [
         { url: 'https://in.indeed.com/jobs?q=pm' },
         { url: 'https://www.naukri.com/pm-jobs', enabled: false },
-        { url: 'https://evil.example/jobs' },
+        { url: 'ftp://evil.example/jobs' },
         { url: 'http://www.naukri.com/pm-jobs' },
         { url: 'https://www.naukri.com/pm-jobs', maxPages: 0 },
       ],
@@ -128,8 +131,7 @@ describe('Sources panel list edits', () => {
     expect(res).toEqual({ ok: true, list: [a, { url: 'https://in.indeed.com/jobs?q=pm', maxPages: 3, enabled: true }] });
   });
 
-  it('refuses other sites, http, junk and duplicates', () => {
-    expect(addSource([], { url: 'https://www.linkedin.com/jobs' })).toMatchObject({ ok: false });
+  it('refuses http, junk and duplicates', () => {
     expect(addSource([], { url: 'http://in.indeed.com/jobs?q=pm' })).toMatchObject({ ok: false });
     expect(addSource([], { url: 'not a link' })).toMatchObject({ ok: false });
     expect(addSource([b], { url: 'https://www.naukri.com/pm-jobs' })).toEqual({ ok: false, error: 'That link is already in the list.' });

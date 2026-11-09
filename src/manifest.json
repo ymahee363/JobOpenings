@@ -2,10 +2,11 @@
   "manifest_version": 3,
   "name": "Naukri Fast-Apply Board",
   "version": "0.1.0",
-  "description": "Your Naukri, Indeed, Instahyre, Wellfound, Cutshort, foundit, iimjobs and LinkedIn openings, newest first, split into Easy Apply and Company Site tabs. Data stays on this device.",
+  "description": "Your Naukri, Indeed, Instahyre, Wellfound, Cutshort, foundit, iimjobs and LinkedIn openings, newest first, split into Easy Apply and Company Site tabs. AI apply fills application forms on any site from your profile. Data stays on this device and your own AI backend.",
   "minimum_chrome_version": "116",
-  "permissions": ["storage", "alarms", "tabs", "notifications"],
-  "host_permissions": ["https://www.naukri.com/*", "https://in.indeed.com/*", "https://www.instahyre.com/*", "https://wellfound.com/*", "https://cutshort.io/*", "https://www.foundit.in/*", "https://www.iimjobs.com/*"],
+  "permissions": ["storage", "alarms", "tabs", "notifications", "scripting", "power", "debugger"],
+  "host_permissions": ["https://www.naukri.com/*", "https://in.indeed.com/*", "https://www.instahyre.com/*", "https://wellfound.com/*", "https://cutshort.io/*", "https://www.foundit.in/*", "https://www.iimjobs.com/*", "http://localhost:8000/*", "http://127.0.0.1:8000/*"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
   "background": { "service_worker": "service-worker.js", "type": "module" },
   "icons": { "16": "icon-16.png", "48": "icon-48.png", "128": "icon-128.png" },
   "action": { "default_title": "Open job board", "default_icon": { "16": "icon-16.png", "48": "icon-48.png" } },
@@ -20,6 +21,11 @@
       "matches": ["https://www.naukri.com/*", "https://in.indeed.com/*", "https://www.instahyre.com/*", "https://wellfound.com/*", "https://cutshort.io/*", "https://www.foundit.in/*", "https://www.iimjobs.com/*", "https://www.linkedin.com/*"],
       "js": ["collector.js"],
       "run_at": "document_start"
+    },
+    {
+      "matches": ["https://www.iimjobs.com/j/*", "https://www.instahyre.com/job-*", "https://www.naukri.com/job-listings-*", "https://wellfound.com/jobs/*"],
+      "js": ["applier.js"],
+      "run_at": "document_idle"
     }
   ],
   "content_security_policy": {

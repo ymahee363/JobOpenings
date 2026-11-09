@@ -9,7 +9,7 @@ import { load, save } from '../shared/store';
 function siteLabel(url: string): string {
   try {
     const site = siteOfUrl(new URL(url));
-    return site ? SITE_LABEL[site] : '?';
+    return site ? SITE_LABEL[site] : 'Other (saved, not read by refresh)';
   } catch {
     return '?';
   }

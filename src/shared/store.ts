@@ -1,5 +1,9 @@
 /** Typed wrappers over chrome.storage.local for small settings and state. */
-import { DEFAULT_FILTERS, DEFAULT_HIDDEN_TITLE_WORDS, type Filters } from './board';
+import { DEFAULT_AGENT_CONFIG, DEFAULT_AGENT_STATE, type AgentConfig, type AgentState } from './auto-apply/config';
+import type { MemoryMap } from './ai-apply/memory';
+import { DEFAULT_BACKEND, DEFAULT_PROFILE, type AiBackend, type StoredResume } from './ai-apply/profile';
+import type { CandidateProfile } from './ai-apply/types';
+import { DEFAULT_FILTERS, DEFAULT_HIDDEN_TITLE_WORDS, type Filters, type TabOverrides } from './board';
 import { DEFAULT_SAFETY, type SafetyState } from './safety';
 import type { Source } from './sources';
 import { DEFAULT_HEALTH, DEFAULT_SETTINGS, type Health, type Settings } from './types';
@@ -20,6 +24,25 @@ interface StoreShape {
   sources: Source[] | null;
   /** Jobs whose title has one of these words are hidden from the board. */
   hiddenTitleWords: string[];
+  /** The iimjobs auto-apply agent's switches, rules and answer bank. */
+  agent: AgentConfig;
+  agentState: AgentState;
+  /** AI apply: your candidate profile (read through `normalizeProfile`). */
+  aiProfile: CandidateProfile;
+  /** AI apply: the LLM backend's address and key. */
+  aiBackend: AiBackend;
+  /** AI apply: your resume file and text; null until you add one. */
+  aiResume: StoredResume | null;
+  /** AI apply: answers remembered across sites, by question. */
+  formMemory: MemoryMap;
+  /** AI apply: your cover letter, attached to cover letter upload fields; null until you add one. */
+  aiCoverLetter: StoredResume | null;
+  /** The version of seed/ai-seed.json already loaded (job-apply-ai-mvp data); null before the first. */
+  aiSeedVersion: number | null;
+  /** When the "apply to every matching job" settings were switched on (once); null before. */
+  agentEverywhereAt: number | null;
+  /** Jobs you dragged to another tab on the board. */
+  tabOverrides: TabOverrides;
 }
 
 const DEFAULTS: StoreShape = {
@@ -31,6 +54,16 @@ const DEFAULTS: StoreShape = {
   pendingApply: null,
   sources: null,
   hiddenTitleWords: DEFAULT_HIDDEN_TITLE_WORDS,
+  agent: DEFAULT_AGENT_CONFIG,
+  agentState: DEFAULT_AGENT_STATE,
+  aiProfile: DEFAULT_PROFILE,
+  aiBackend: DEFAULT_BACKEND,
+  aiResume: null,
+  formMemory: {},
+  aiCoverLetter: null,
+  aiSeedVersion: null,
+  agentEverywhereAt: null,
+  tabOverrides: {},
 };
 
 export type StoreKey = keyof StoreShape;

@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zoho Recruit replica - Product Manager</title>
+<style>
+  body { font: 14px/1.4 system-ui, sans-serif; max-width: 760px; margin: 24px auto; padding: 0 16px; color: #1d1d1f; background: #fff; }
+  .crc-form-row { margin: 10px 0; } .crc-label-text { font-weight: 600; display: block; } input, textarea { padding: 5px; min-width: 260px; }
+  lyte-dropdown { display: inline-block; margin-right: 6px; } [role=combobox] { border: 1px solid #aaa; padding: 3px 8px; min-width: 60px; cursor: pointer; display: inline-block; }
+  lyte-drop-box { position: absolute; background: #fff; border: 1px solid #888; max-height: 160px; overflow: auto; z-index: 9; }
+  lyte-drop-box.lyteDropdownHidden { display: none; } lyte-drop-item { display: block; padding: 2px 8px; cursor: pointer; }
+  .tabular-main-div { border: 1px solid #ddd; padding: 6px; margin: 6px 0; } .fileName { margin-left: 8px; color: #070; }
+  input[type=file] { display: none; } #captchaImg { font: italic 22px monospace; letter-spacing: 4px; background: #eee; padding: 2px 8px; }
+</style>
+</head>
+<body>
+<!-- A replica of a Zoho Recruit job page and its application form (markup and behaviour as measured on
+     raveinfosys.zohorecruit.com, 2026-11-06), for the Zoho applier's tests. -->
+<div id="job">
+  <h1>Product Manager</h1>
+  <button type="button" class="lyte-button" id="interested">I'm interested</button>
+</div>
+<div id="app" hidden>
+  <div class="crc-form-row"><span class="crc-label-text"><span>Autofill Application</span></span>
+    <lyte-fileupload><input type="file" accept="application/pdf"><a>Upload your resume</a></lyte-fileupload></div>
+  <div class="crc-form-row"><label class="crm-from-label"><span class="crc-label-text"><span>First Name</span></span></label><div class="crc-form-field"><crux-text-component><lyte-input><div class="lyteField"><input type="text"></div></lyte-input></crux-text-component></div></div>
+  <div class="crc-form-row"><label class="crm-from-label"><span class="crc-label-text"><span>Last Name *</span></span></label><div class="crc-form-field"><crux-text-component><lyte-input><div class="lyteField"><input type="text"></div></lyte-input></crux-text-component></div></div>
+  <div class="crc-form-row"><label class="crm-from-label"><span class="crc-label-text"><span>Email</span></span></label><div class="crc-form-field"><crux-email-component><lyte-input><div class="lyteField"><input type="text"></div></lyte-input></crux-email-component></div></div>
+  <div class="crc-form-row"><label class="crm-from-label"><span class="crc-label-text"><span>Mobile</span></span></label><div class="crc-form-field crux-country-droplist"><crux-phone-component>
+    <lyte-dropdown data-items="United States (+1)|United Kingdom (+44)|India (+91)|Indonesia (+62)"><div role="combobox" aria-haspopup="listbox" aria-expanded="false"><lyte-drop-button>+1</lyte-drop-button></div></lyte-dropdown>
+    <lyte-input><div class="lyteField"><input type="text"></div></lyte-input></crux-phone-component></div></div>
+  <div class="crc-form-row"><label class="crm-from-label"><span class="crc-label-text"><span>City</span></span></label><div class="crc-form-field crc-form-autocomplete"><lyte-input><div class="lyteField"><input type="text"></div></lyte-input></div></div>
+  <div class="crc-form-row"><label class="crm-from-label"><span class="crc-label-text"><span>Zip/Postal Code</span></span></label><div class="crc-form-field crc-form-autocomplete"><lyte-input><div class="lyteField"><input type="text"></div></lyte-input></div></div>
+  <div class="crc-form-row"><label class="crm-from-label"><span class="crc-label-text"><span>Country</span></span></label><div class="crc-form-field"><lyte-input><div class="lyteField"><input type="text"></div></lyte-input></div></div>
+  <div class="crc-form-row"><label class="crm-from-label"><span class="crc-label-text"><span>Current Employer *</span></span></label><div class="crc-form-field"><lyte-input><div class="lyteField"><input type="text"></div></lyte-input></div></div>
+  <div class="crc-form-row"><label class="crm-from-label"><span class="crc-label-text"><span>LinkedIn</span></span></label><div class="crc-form-field"><lyte-input><div class="lyteField"><input type="text"></div></lyte-input></div></div>
+  <div class="crc-form-row Educational_Details" role="region" aria-label="Educational Details"><h2 class="cw-section-title">Educational Details <button type="button" class="cw-form-clear">Clear</button></h2>
+    <div class="crc-form-tabularblock" data-kind="edu"></div><button type="button" class="add">Add</button></div>
+  <div class="crc-form-row Experience_Details" role="region" aria-label="Experience Details"><h2 class="cw-section-title">Experience Details <button type="button" class="cw-form-clear">Clear</button></h2>
+    <div class="crc-form-tabularblock" data-kind="exp"></div><button type="button" class="add">Add</button></div>
+  <div class="crc-form-row"><span>Attachment Information</span></div>
+  <div class="crc-form-row"><label class="crm-from-label"><span class="crc-label-text"><span>Photo</span></span></label><lyte-fileupload><input type="file" accept="image/png,image/jpeg"><a>Browse</a><span class="fileName"></span></lyte-fileupload></div>
+  <div class="crc-form-row"><label class="crm-from-label"><span class="crc-label-text"><span>Resume</span></span></label><lyte-fileupload><input type="file" accept="application/pdf,application/x-zip"><a>Browse</a><span class="fileName"></span></lyte-fileupload></div>
+  <div class="crc-form-row"><label class="crm-from-label"><span class="crc-label-text"><span>CAPTCHA *</span></span></label><div class="crc-form-field"><span id="captchaImg">K7P2Q</span><br><input type="text" id="captcha" placeholder="Type below image text"></div></div>
+  <div class="crc-error" id="err" role="alert" hidden></div>
+  <lyte-button><button type="submit" class="lyte-button" id="submit">Submit Application</button></lyte-button>
+</div>
+<p><a href="https://www.zoho.com/recruit/">Powered by Zoho Recruit</a></p>
+<script>
+(function () {
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var YEARS = []; for (var y = 2026; y >= 1990; y--) YEARS.push(String(y));
+  window.__seen = null;
+  document.getElementById('interested').onclick = function () { document.getElementById('job').hidden = true; document.getElementById('app').hidden = false; };
+  // lyte-dropdown: the combobox opens a drop box at the end of <body>; clicking an item sets the button.
+  function wire(dd) {
+    var btn = dd.querySelector('lyte-drop-button');
+    dd.querySelector('[role=combobox]').onclick = function () {
+      var box = document.createElement('lyte-drop-box');
+      dd.getAttribute('data-items').split('|').forEach(function (t) {
+        var it = document.createElement('lyte-drop-item'); it.textContent = t;
+        it.onclick = function () { btn.textContent = t; dd.setAttribute('data-selected', t); box.remove(); };
+        box.appendChild(it);
+      });
+      document.body.appendChild(box);
+    };
+  }
+  document.querySelectorAll('lyte-dropdown').forEach(wire);
+  function dropdown(items) {
+    var d = document.createElement('lyte-dropdown'); d.setAttribute('data-items', items.join('|'));
+    d.innerHTML = '<div role="combobox" aria-haspopup="listbox"><lyte-drop-button>' + (items === MONTHS ? 'Month' : 'Year') + '</lyte-drop-button></div>';
+    wire(d); return d;
+  }
+  function row(label, html) { var r = document.createElement('div'); r.className = 'crc-form-tabularrow'; r.innerHTML = '<label>' + label + '</label>' + (html || ''); return r; }
+  document.querySelectorAll('.add').forEach(function (add) {
+    add.onclick = function () {
+      var holder = add.parentElement.querySelector('.crc-form-tabularblock'); var edu = holder.getAttribute('data-kind') === 'edu';
+      var b = document.createElement('div'); b.className = 'tabular-main-div';
+      var text = '<lyte-input><div class="lyteField"><input type="text"></div></lyte-input>';
+      if (edu) { b.appendChild(row('Institute / School', text)); b.appendChild(row('Major / Department', text)); b.appendChild(row('Degree', text)); }
+      else { b.appendChild(row('Occupation / Title', text)); b.appendChild(row('Company', text)); b.appendChild(row('Summary', '<textarea></textarea>')); }
+      var dur = row(edu ? 'Duration' : 'Work Duration');
+      [MONTHS, YEARS, MONTHS, YEARS].forEach(function (items) { dur.appendChild(dropdown(items)); });
+      b.appendChild(dur);
+      b.appendChild(row(edu ? 'Currently pursuing' : 'I currently work here', '<input type="checkbox">'));
+      holder.appendChild(b);
+    };
+  });
+  document.querySelectorAll('lyte-fileupload input[type=file]').forEach(function (f) {
+    f.addEventListener('change', function () { var n = f.parentElement.querySelector('.fileName'); if (n && f.files[0]) n.textContent = f.files[0].name; });
+  });
+  document.getElementById('submit').onclick = function () {
+    var err = document.getElementById('err');
+    if (document.getElementById('captcha').value.trim().toUpperCase() !== 'K7P2Q') { err.textContent = 'Please enter a valid CAPTCHA.'; err.hidden = false; document.getElementById('captcha').value = ''; return; }
+    var blocks = function (k) { return [].map.call(document.querySelectorAll('[data-kind=' + k + '] .tabular-main-div'), function (b) {
+      return [].map.call(b.querySelectorAll('input[type=text], textarea'), function (i) { return i.value; }).concat([].map.call(b.querySelectorAll('lyte-drop-button'), function (x) { return x.textContent; })).concat([b.querySelector('input[type=checkbox]').checked]); }); };
+    window.__seen = {
+      first: document.querySelectorAll('#app input[type=text]')[0].value, phoneCode: document.querySelector('.crux-country-droplist lyte-drop-button').textContent,
+      edu: blocks('edu'), exp: blocks('exp'), resume: document.querySelectorAll('.fileName')[1].textContent, photo: document.querySelectorAll('.fileName')[0].textContent,
+      employer: [].find.call(document.querySelectorAll('.crc-form-row'), function (r) { return /Current Employer/.test(r.textContent); }).querySelector('input').value
+    };
+    document.getElementById('app').innerHTML = '<h2>Thank you for applying! Your application has been submitted.</h2>';
+  };
+})();
+</script>
+</body>
+</html>

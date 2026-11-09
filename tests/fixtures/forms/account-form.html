@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Careers account test site</title>
+<style>
+  body { font: 14px/1.4 system-ui, sans-serif; max-width: 520px; margin: 24px auto; padding: 0 16px; color: #1d1d1f; background: #fff; }
+  label { display: block; font-weight: 600; margin: 10px 0 2px; } input[type=text], input[type=email], input[type=password] { padding: 6px; width: 100%; box-sizing: border-box; }
+  .error { color: #c00; margin: 8px 0; } button { margin-top: 12px; padding: 6px 14px; } a { color: #0645ad; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>Acme Careers</h1>
+<div id="app"></div>
+<script>
+(function () {
+  // A careers site's account wall. Options in the address: ?start=signup, ?existing=1 (the account exists),
+  // ?wrongpw=1 (the account exists with another password), ?verify=1 (an emailed code after creating the account).
+  var q = new URLSearchParams(location.search);
+  var users = {};
+  if (q.get('existing') || q.get('wrongpw')) users['__ANY__'] = q.get('wrongpw') ? 'another-password' : null;
+  window.__events = [];
+  var app = document.getElementById('app');
+  function known(email) { return users[email] !== undefined || users['__ANY__'] !== undefined; }
+  function passwordOf(email) { return users[email] !== undefined ? users[email] : users['__ANY__']; }
+
+  function signIn(err) {
+    app.innerHTML = '<h2>Sign In</h2>' + (err ? '<div class="error" role="alert">' + err + '</div>' : '') +
+      '<form id="f" onsubmit="return false"><label for="em">Email Address</label><input id="em" type="email" autocomplete="username">' +
+      '<label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password">' +
+      '<button type="submit" id="go">Sign In</button></form><p>New here? <a id="to-create">Create Account</a></p>';
+    document.getElementById('to-create').onclick = function () { signUp(); };
+    document.getElementById('go').onclick = function () {
+      var e = document.getElementById('em').value, p = document.getElementById('pw').value;
+      window.__events.push('signin:' + e);
+      if (!known(e)) return signIn('No account found for this email address.');
+      var want = passwordOf(e);
+      if (want !== null && want !== p) return signIn('Incorrect password. Please try again.');
+      application();
+    };
+  }
+
+  function signUp(err) {
+    app.innerHTML = '<h2>Create Account</h2>' + (err ? '<div class="error" role="alert">' + err + '</div>' : '') +
+      '<form id="f" onsubmit="return false"><label for="em">Email Address *</label><input id="em" type="email">' +
+      '<label for="pw">Password *</label><input id="pw" type="password" autocomplete="new-password">' +
+      '<label for="pw2">Verify New Password *</label><input id="pw2" type="password" autocomplete="new-password">' +
+      '<label><input type="checkbox" id="terms"> I agree to the Terms of Use and Privacy Policy *</label>' +
+      '<label><input type="checkbox" id="mkt"> Send me marketing emails and job offers</label>' +
+      '<button type="submit" id="go">Create Account</button></form><p>Already have an account? <a id="to-signin">Sign In</a></p>';
+    document.getElementById('to-signin').onclick = function () { signIn(); };
+    document.getElementById('go').onclick = function (ev) {
+      // ?trusted=1: like Workday's Create Account on Cisco, a scripted click does nothing; only a real one counts.
+      if (q.get('trusted') && !ev.isTrusted) { window.__events.push('ignored-scripted-click'); return; }
+      var e = document.getElementById('em').value, p = document.getElementById('pw').value, p2 = document.getElementById('pw2').value;
+      window.__events.push('signup:' + e + (document.getElementById('mkt').checked ? ':marketing' : ''));
+      if (known(e)) return signUp('An account with this email already exists.');
+      if (!/@/.test(e)) return signUp('Please enter a valid email address.');
+      if (p.length < 8 || p !== p2) return signUp('Passwords must match and be at least 8 characters.');
+      if (!document.getElementById('terms').checked) return signUp('You must agree to the Terms of Use.');
+      users[e] = p;
+      if (q.get('verify')) { app.innerHTML = '<h2>Verify your email</h2><p>We have sent a verification code to ' + e + '. Enter the code to continue.</p><input type="text" id="code" placeholder="Verification code">'; return; }
+      application();
+    };
+  }
+
+  function application() {
+    window.__events.push('application');
+    app.innerHTML = '<h2>Apply: Product Manager</h2><form id="a" onsubmit="return false">' +
+      '<label for="fn">First Name *</label><input id="fn" type="text" required><label for="ln">Last Name *</label><input id="ln" type="text" required>' +
+      '<label for="ae">Email *</label><input id="ae" type="email" required><button type="button" id="submit">Submit Application</button></form>';
+    document.getElementById('submit').onclick = function () {
+      window.__submitted = { fn: document.getElementById('fn').value, ln: document.getElementById('ln').value, email: document.getElementById('ae').value };
+      app.innerHTML = '<h2>Thank you for applying! Your application has been submitted.</h2>';
+    };
+  }
+
+  if (q.get('start') === 'signup' || q.get('existing')) signUp(); else signIn();
+})();
+</script>
+</body>
+</html>

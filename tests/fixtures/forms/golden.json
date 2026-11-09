@@ -1,0 +1,2970 @@
+{
+ "about": "Golden set of real application forms for AI apply. Each case is a saved page (scripts removed) with the fields the form engine must extract, the answers that must come from the profile without the LLM, and the questions that should go to the LLM. Add a case for every new kind of form; see tests/golden-forms.test.ts.",
+ "cases": [
+  {
+   "name": "Lever: Sophos",
+   "fixture": "lever-sophos.html",
+   "url": "https://jobs.lever.co/sophos/36d14696-10f4-4459-a007-c98d15557eba/apply",
+   "savedAt": "2026-11-01",
+   "fields": [
+    [
+     "Resume/CV ✱",
+     "file",
+     true
+    ],
+    [
+     "Full name✱",
+     "text",
+     true
+    ],
+    [
+     "Email✱",
+     "email",
+     true
+    ],
+    [
+     "Phone ✱",
+     "text",
+     true
+    ],
+    [
+     "Current location",
+     "text",
+     false
+    ],
+    [
+     "Current company",
+     "text",
+     false
+    ],
+    [
+     "LinkedIn URL",
+     "text",
+     false
+    ],
+    [
+     "GitHub URL",
+     "text",
+     false
+    ],
+    [
+     "Portfolio URL",
+     "text",
+     false
+    ],
+    [
+     "Other website",
+     "text",
+     false
+    ],
+    [
+     "Applicants must have authorization to work in the jurisdiction where the position is posted, without requiring employer sponsorship. By submitting this application, you are affirming that you have or reasonably expect to have such work authorization by the expected start date.✱",
+     "radio",
+     true
+    ],
+    [
+     "Yes, Sophos can contact me about future job opportunities for up to 1 yearPrivacy policy",
+     "checkbox",
+     false
+    ]
+   ],
+   "answers": {
+    "Full name✱": "Mahendra Yadav",
+    "Email✱": "mahendra.iitg@gmail.com",
+    "Phone ✱": "6264252896",
+    "Current location": "Bengaluru",
+    "Current company": "Nu10 (AI Product Development)",
+    "LinkedIn URL": "https://www.linkedin.com/in/mahendra-yadav/",
+    "GitHub URL": "https://github.com/ymahee363",
+    "Portfolio URL": "https://www.mahendrayadavpm.in/",
+    "Other website": "https://www.mahendrayadavpm.in/"
+   },
+   "toLLM": [
+    "Applicants must have authorization to work in the jurisdiction"
+   ],
+   "llmAnswers": {
+    "Applicants must have authorization to work in the jurisdiction": "Yes – I confirm I meet the above requirement"
+   },
+   "filled": {
+    "input[name=name]": "Mahendra Yadav",
+    "input[name=email]": "mahendra.iitg@gmail.com",
+    "input[name=phone]": "6264252896",
+    "input[name=location]": "Bengaluru",
+    "input[name=org]": "Nu10 (AI Product Development)",
+    "input[name='urls[GitHub]']": "https://github.com/ymahee363"
+   },
+   "checked": [
+    "input[type=radio][value^='Yes']"
+   ],
+   "unchecked": [
+    "input[type=checkbox][name='consent[marketing]']"
+   ]
+  },
+  {
+   "name": "Ashby: Linear",
+   "fixture": "ashby-linear.html",
+   "url": "https://jobs.ashbyhq.com/linear/b7669c4b-eeca-421d-ba9a-d90203f6fcb2/application",
+   "savedAt": "2026-11-02",
+   "fields": [
+    [
+     "Name",
+     "text",
+     true
+    ],
+    [
+     "Email",
+     "email",
+     true
+    ],
+    [
+     "Resume",
+     "file",
+     true
+    ],
+    [
+     "Start typing...",
+     "combobox",
+     false
+    ],
+    [
+     "Cover letter",
+     "textarea",
+     true
+    ],
+    [
+     "What motivates you professionally? What do you look forward to about work every day?",
+     "textarea",
+     true
+    ],
+    [
+     "Who are your biggest professional influences? What specific things have you taken from them?",
+     "textarea",
+     true
+    ],
+    [
+     "How did you hear about this role?",
+     "text",
+     true
+    ],
+    [
+     "LinkedIn",
+     "text",
+     false
+    ],
+    [
+     "X",
+     "text",
+     false
+    ],
+    [
+     "GitHub",
+     "text",
+     false
+    ],
+    [
+     "Website",
+     "text",
+     false
+    ],
+    [
+     "Has someone at Linear referred you for this role? If so, please include their name here:",
+     "text",
+     false
+    ]
+   ],
+   "direct": [
+    [
+     "Name",
+     "Mahendra Yadav"
+    ],
+    [
+     "Email",
+     "mahendra.iitg@gmail.com"
+    ],
+    [
+     "LinkedIn",
+     "https://www.linkedin.com/in/mahendra-yadav/"
+    ],
+    [
+     "GitHub",
+     "https://github.com/ymahee363"
+    ],
+    [
+     "Website",
+     "https://www.mahendrayadavpm.in/"
+    ]
+   ],
+   "toLLM": [
+    "Start typing...",
+    "What motivates you professionally? What do you look forward to about work every day?",
+    "Who are your biggest professional influences? What specific things have you taken from them?",
+    "How did you hear about this role?",
+    "X",
+    "Has someone at Linear referred you for this role? If so, please include their name here:"
+   ],
+   "readBack": true
+  },
+  {
+   "name": "Ashby: Notion",
+   "fixture": "ashby-notion.html",
+   "url": "https://jobs.ashbyhq.com/notion/be6e1a35-d467-48e6-96bf-62afc4ad0126/application",
+   "savedAt": "2026-11-02",
+   "fields": [
+    [
+     "Full Name",
+     "text",
+     true
+    ],
+    [
+     "Email",
+     "email",
+     true
+    ],
+    [
+     "Phone",
+     "tel",
+     true
+    ],
+    [
+     "Resume",
+     "file",
+     true
+    ],
+    [
+     "LinkedIn Profile",
+     "text",
+     false
+    ],
+    [
+     "What pronouns would you like our team to use when addressing you?",
+     "radio",
+     false
+    ],
+    [
+     "Portfolio Link",
+     "text",
+     true
+    ],
+    [
+     "Portfolio Password",
+     "text",
+     false
+    ],
+    [
+     "LinkedIn",
+     "checkbox",
+     false
+    ],
+    [
+     "Glassdoor",
+     "checkbox",
+     false
+    ],
+    [
+     "Notion Blog",
+     "checkbox",
+     false
+    ],
+    [
+     "Notion Employee",
+     "checkbox",
+     false
+    ],
+    [
+     "Notion Website",
+     "checkbox",
+     false
+    ],
+    [
+     "Billboard/Outdoor Ads",
+     "checkbox",
+     false
+    ],
+    [
+     "Conference or Meetup",
+     "checkbox",
+     false
+    ],
+    [
+     "Input gender",
+     "radio",
+     false
+    ],
+    [
+     "Hispanic or Latino - A person of Cuban, Mexican, Puerto Rican, South or Central American, or other Spanish culture or origin regardless of race.White (Not Hispanic or Latino) - A person having origins in any of the original peoples of Europe, the Middle East, or North Africa.Black or African American (Not Hispanic or Latino) - A person having origins in any of the Black racial groups of Africa.Native Hawaiian or Other Pacific Islander (Not Hispanic or Latino) - A person having origins in any of the peoples of Hawaii, Guam, Samoa, or other Pacific Islands.Asian (Not Hispanic or Latino) - A person having origins in any of the original peoples of the Far East, Southeast Asia, or the Indian Subcontinent, including, for example, Cambodia, China, India, Japan, Korea, Malaysia, Pakistan, the Philippine Islands, Thailand, and Vietnam.American Indian or Alaska Native (Not Hispanic or Latino) - A person having origins in any of the original peoples of North and South America (including Central America), and who maintain tribal affiliation or community attachment.Two or More Races (Not Hispanic or Latino) - All persons who identify with more than one of the above five races.",
+     "radio",
+     false
+    ],
+    [
+     "Veteran Status",
+     "radio",
+     false
+    ]
+   ],
+   "direct": [
+    [
+     "Full Name",
+     "Mahendra Yadav"
+    ],
+    [
+     "Email",
+     "mahendra.iitg@gmail.com"
+    ],
+    [
+     "Phone",
+     "6264252896"
+    ],
+    [
+     "LinkedIn Profile",
+     "https://www.linkedin.com/in/mahendra-yadav/"
+    ],
+    [
+     "Portfolio Link",
+     "https://www.mahendrayadavpm.in/"
+    ]
+   ],
+   "toLLM": [
+    "What pronouns would you like our team to use when addressing you?",
+    "Portfolio Password",
+    "Input gender",
+    "Hispanic or Latino - A person of Cuban, Mexican, Puerto Rican, South or Central American, or other Spanish culture or origin regardless of race.White (Not Hispanic or Latino) - A person having origins in any of the original peoples of Europe, the Middle East, or North Africa.Black or African American (Not Hispanic or Latino) - A person having origins in any of the Black racial groups of Africa.Native Hawaiian or Other Pacific Islander (Not Hispanic or Latino) - A person having origins in any of the peoples of Hawaii, Guam, Samoa, or other Pacific Islands.Asian (Not Hispanic or Latino) - A person having origins in any of the original peoples of the Far East, Southeast Asia, or the Indian Subcontinent, including, for example, Cambodia, China, India, Japan, Korea, Malaysia, Pakistan, the Philippine Islands, Thailand, and Vietnam.American Indian or Alaska Native (Not Hispanic or Latino) - A person having origins in any of the original peoples of North and South America (including Central America), and who maintain tribal affiliation or community attachment.Two or More Races (Not Hispanic or Latino) - All persons who identify with more than one of the above five races.",
+    "Veteran Status"
+   ],
+   "readBack": true
+  },
+  {
+   "name": "Ashby: Openai",
+   "fixture": "ashby-openai.html",
+   "url": "https://jobs.ashbyhq.com/openai/fc38c6bf-5330-435c-99b6-1bcf1f5829a8/application",
+   "savedAt": "2026-11-02",
+   "fields": [
+    [
+     "Legal Name",
+     "text",
+     true
+    ],
+    [
+     "Preferred Name (if applicable)",
+     "text",
+     false
+    ],
+    [
+     "Email",
+     "email",
+     true
+    ],
+    [
+     "Resume",
+     "file",
+     true
+    ],
+    [
+     "Phone Number",
+     "tel",
+     true
+    ],
+    [
+     "Start typing...",
+     "combobox",
+     false
+    ],
+    [
+     "Pick date...",
+     "date",
+     true
+    ],
+    [
+     "Additional Information",
+     "textarea",
+     false
+    ],
+    [
+     "I acknowledge that I have opened, read, and understood the Arbitration Agreement. I understand that by submitting my application, I am agreeing to be bound by the terms of the Arbitration Agreement.",
+     "checkbox",
+     false
+    ],
+    [
+     "I confirm I have read the above.",
+     "checkbox",
+     false
+    ],
+    [
+     "Input gender",
+     "radio",
+     false
+    ],
+    [
+     "Hispanic or Latino - A person of Cuban, Mexican, Puerto Rican, South or Central American, or other Spanish culture or origin regardless of race.White (Not Hispanic or Latino) - A person having origins in any of the original peoples of Europe, the Middle East, or North Africa.Black or African American (Not Hispanic or Latino) - A person having origins in any of the Black racial groups of Africa.Native Hawaiian or Other Pacific Islander (Not Hispanic or Latino) - A person having origins in any of the peoples of Hawaii, Guam, Samoa, or other Pacific Islands.Asian (Not Hispanic or Latino) - A person having origins in any of the original peoples of the Far East, Southeast Asia, or the Indian Subcontinent, including, for example, Cambodia, China, India, Japan, Korea, Malaysia, Pakistan, the Philippine Islands, Thailand, and Vietnam.American Indian or Alaska Native (Not Hispanic or Latino) - A person having origins in any of the original peoples of North and South America (including Central America), and who maintain tribal affiliation or community attachment.Two or More Races (Not Hispanic or Latino) - All persons who identify with more than one of the above five races.",
+     "radio",
+     false
+    ],
+    [
+     "Veteran Status",
+     "radio",
+     false
+    ]
+   ],
+   "direct": [
+    [
+     "Legal Name",
+     "Mahendra Yadav"
+    ],
+    [
+     "Email",
+     "mahendra.iitg@gmail.com"
+    ],
+    [
+     "Phone Number",
+     "6264252896"
+    ]
+   ],
+   "toLLM": [
+    "Preferred Name (if applicable)",
+    "Start typing...",
+    "Pick date...",
+    "Additional Information",
+    "Input gender",
+    "Hispanic or Latino - A person of Cuban, Mexican, Puerto Rican, South or Central American, or other Spanish culture or origin regardless of race.White (Not Hispanic or Latino) - A person having origins in any of the original peoples of Europe, the Middle East, or North Africa.Black or African American (Not Hispanic or Latino) - A person having origins in any of the Black racial groups of Africa.Native Hawaiian or Other Pacific Islander (Not Hispanic or Latino) - A person having origins in any of the peoples of Hawaii, Guam, Samoa, or other Pacific Islands.Asian (Not Hispanic or Latino) - A person having origins in any of the original peoples of the Far East, Southeast Asia, or the Indian Subcontinent, including, for example, Cambodia, China, India, Japan, Korea, Malaysia, Pakistan, the Philippine Islands, Thailand, and Vietnam.American Indian or Alaska Native (Not Hispanic or Latino) - A person having origins in any of the original peoples of North and South America (including Central America), and who maintain tribal affiliation or community attachment.Two or More Races (Not Hispanic or Latino) - All persons who identify with more than one of the above five races.",
+    "Veteran Status"
+   ],
+   "readBack": true
+  },
+  {
+   "name": "Ashby: Ramp",
+   "fixture": "ashby-ramp.html",
+   "url": "https://jobs.ashbyhq.com/ramp/3f4509ad-1858-478b-a7fb-bcd792d9575a/application",
+   "savedAt": "2026-11-02",
+   "fields": [
+    [
+     "Legal Name",
+     "text",
+     true
+    ],
+    [
+     "Email",
+     "email",
+     true
+    ],
+    [
+     "Phone",
+     "tel",
+     true
+    ],
+    [
+     "SMS",
+     "radio",
+     false
+    ],
+    [
+     "WhatsApp",
+     "radio",
+     false
+    ],
+    [
+     "Start typing...",
+     "combobox",
+     false
+    ],
+    [
+     "Are you comfortable working in-person at the office (in New York or San Francisco) at least 3 days/week?",
+     "radio",
+     false
+    ],
+    [
+     "Resume",
+     "file",
+     true
+    ],
+    [
+     "LinkedIn Profile",
+     "text",
+     true
+    ],
+    [
+     "Can you share an example of how you’ve integrated an AI tool into your product development workflow (e.g., research, PRDs, data analysis, design brainstorming)?",
+     "textarea",
+     true
+    ],
+    [
+     "Why do you want to work at Ramp?",
+     "textarea",
+     true
+    ],
+    [
+     "Have you owned a product area from customer discovery through launch and measured adoption after launch? If yes, briefly describe how you measured adoption",
+     "textarea",
+     true
+    ],
+    [
+     "Optional: Share something you built that you’re proud of—a product, prototype, AI project, or other work sample. Briefly describe your contribution and why you’re proud of it.",
+     "textarea",
+     false
+    ]
+   ],
+   "direct": [
+    [
+     "Legal Name",
+     "Mahendra Yadav"
+    ],
+    [
+     "Email",
+     "mahendra.iitg@gmail.com"
+    ],
+    [
+     "Phone",
+     "6264252896"
+    ],
+    [
+     "LinkedIn Profile",
+     "https://www.linkedin.com/in/mahendra-yadav/"
+    ]
+   ],
+   "toLLM": [
+    "SMS",
+    "WhatsApp",
+    "Start typing...",
+    "Are you comfortable working in-person at the office (in New York or San Francisco) at least 3 days/week?",
+    "Can you share an example of how you’ve integrated an AI tool into your product development workflow (e.g., research, PRDs, data analysis, design brainstorming)?",
+    "Why do you want to work at Ramp?",
+    "Have you owned a product area from customer discovery through launch and measured adoption after launch? If yes, briefly describe how you measured adoption",
+    "Optional: Share something you built that you’re proud of—a product, prototype, AI project, or other work sample. Briefly describe your contribution and why you’re proud of it."
+   ],
+   "readBack": true
+  },
+  {
+   "name": "Ashby: Replit",
+   "fixture": "ashby-replit.html",
+   "url": "https://jobs.ashbyhq.com/replit/659a8e1e-69ba-44c0-a632-96665051a3e8/application",
+   "savedAt": "2026-11-02",
+   "fields": [
+    [
+     "Full Name",
+     "text",
+     true
+    ],
+    [
+     "Email",
+     "email",
+     true
+    ],
+    [
+     "Phone Number",
+     "tel",
+     true
+    ],
+    [
+     "Resume",
+     "file",
+     true
+    ],
+    [
+     "Replit Profile URL",
+     "text",
+     false
+    ],
+    [
+     "Linkedin Profile URL",
+     "text",
+     false
+    ],
+    [
+     "Portfolio URL",
+     "text",
+     false
+    ],
+    [
+     "Github Profile URL",
+     "text",
+     false
+    ],
+    [
+     "Start typing...",
+     "combobox",
+     false
+    ],
+    [
+     "What excites you about Replit?",
+     "textarea",
+     true
+    ],
+    [
+     "If you want to share something you built with Replit please share below.",
+     "textarea",
+     false
+    ],
+    [
+     "How many years of relevant professional experience do you have?",
+     "radio",
+     false
+    ],
+    [
+     "What is your desired salary range?",
+     "text",
+     true
+    ],
+    [
+     "Input gender",
+     "radio",
+     false
+    ],
+    [
+     "Hispanic or Latino - A person of Cuban, Mexican, Puerto Rican, South or Central American, or other Spanish culture or origin regardless of race.White (Not Hispanic or Latino) - A person having origins in any of the original peoples of Europe, the Middle East, or North Africa.Black or African American (Not Hispanic or Latino) - A person having origins in any of the Black racial groups of Africa.Native Hawaiian or Other Pacific Islander (Not Hispanic or Latino) - A person having origins in any of the peoples of Hawaii, Guam, Samoa, or other Pacific Islands.Asian (Not Hispanic or Latino) - A person having origins in any of the original peoples of the Far East, Southeast Asia, or the Indian Subcontinent, including, for example, Cambodia, China, India, Japan, Korea, Malaysia, Pakistan, the Philippine Islands, Thailand, and Vietnam.American Indian or Alaska Native (Not Hispanic or Latino) - A person having origins in any of the original peoples of North and South America (including Central America), and who maintain tribal affiliation or community attachment.Two or More Races (Not Hispanic or Latino) - All persons who identify with more than one of the above five races.",
+     "radio",
+     false
+    ],
+    [
+     "Veteran Status",
+     "radio",
+     false
+    ]
+   ],
+   "direct": [
+    [
+     "Full Name",
+     "Mahendra Yadav"
+    ],
+    [
+     "Email",
+     "mahendra.iitg@gmail.com"
+    ],
+    [
+     "Phone Number",
+     "6264252896"
+    ],
+    [
+     "Linkedin Profile URL",
+     "https://www.linkedin.com/in/mahendra-yadav/"
+    ],
+    [
+     "Portfolio URL",
+     "https://www.mahendrayadavpm.in/"
+    ],
+    [
+     "Github Profile URL",
+     "https://github.com/ymahee363"
+    ]
+   ],
+   "toLLM": [
+    "Replit Profile URL",
+    "Start typing...",
+    "What excites you about Replit?",
+    "If you want to share something you built with Replit please share below.",
+    "How many years of relevant professional experience do you have?",
+    "What is your desired salary range?",
+    "Input gender",
+    "Hispanic or Latino - A person of Cuban, Mexican, Puerto Rican, South or Central American, or other Spanish culture or origin regardless of race.White (Not Hispanic or Latino) - A person having origins in any of the original peoples of Europe, the Middle East, or North Africa.Black or African American (Not Hispanic or Latino) - A person having origins in any of the Black racial groups of Africa.Native Hawaiian or Other Pacific Islander (Not Hispanic or Latino) - A person having origins in any of the peoples of Hawaii, Guam, Samoa, or other Pacific Islands.Asian (Not Hispanic or Latino) - A person having origins in any of the original peoples of the Far East, Southeast Asia, or the Indian Subcontinent, including, for example, Cambodia, China, India, Japan, Korea, Malaysia, Pakistan, the Philippine Islands, Thailand, and Vietnam.American Indian or Alaska Native (Not Hispanic or Latino) - A person having origins in any of the original peoples of North and South America (including Central America), and who maintain tribal affiliation or community attachment.Two or More Races (Not Hispanic or Latino) - All persons who identify with more than one of the above five races.",
+    "Veteran Status"
+   ],
+   "readBack": true
+  },
+  {
+   "name": "Ashby: Sardine",
+   "fixture": "ashby-sardine.html",
+   "url": "https://jobs.ashbyhq.com/sardine/f2638df2-9503-48d9-96dc-0e70e4f93eff/application",
+   "savedAt": "2026-11-02",
+   "fields": [
+    [
+     "Full Legal Name",
+     "text",
+     true
+    ],
+    [
+     "E-mail",
+     "email",
+     true
+    ],
+    [
+     "Phone Number",
+     "tel",
+     true
+    ],
+    [
+     "Resume",
+     "file",
+     true
+    ],
+    [
+     "LinkedIn URL",
+     "text",
+     true
+    ],
+    [
+     "Github/Portfolio URL",
+     "text",
+     false
+    ],
+    [
+     "Start typing...",
+     "combobox",
+     false
+    ],
+    [
+     "What excites you about the opportunity to join Sardine?",
+     "textarea",
+     true
+    ],
+    [
+     "How many years of product management experience do you have",
+     "radio",
+     false
+    ]
+   ],
+   "direct": [
+    [
+     "Full Legal Name",
+     "Mahendra Yadav"
+    ],
+    [
+     "E-mail",
+     "mahendra.iitg@gmail.com"
+    ],
+    [
+     "Phone Number",
+     "6264252896"
+    ],
+    [
+     "LinkedIn URL",
+     "https://www.linkedin.com/in/mahendra-yadav/"
+    ],
+    [
+     "Github/Portfolio URL",
+     "https://github.com/ymahee363"
+    ]
+   ],
+   "toLLM": [
+    "Start typing...",
+    "What excites you about the opportunity to join Sardine?",
+    "How many years of product management experience do you have"
+   ],
+   "readBack": true
+  },
+  {
+   "name": "Ashby: Zapier",
+   "fixture": "ashby-zapier.html",
+   "url": "https://jobs.ashbyhq.com/zapier/cb1aec2c-05cd-4598-8117-bd1f7ed9a49f/application",
+   "savedAt": "2026-11-02",
+   "fields": [
+    [
+     "Legal First Name",
+     "text",
+     true
+    ],
+    [
+     "Legal Last Name",
+     "text",
+     true
+    ],
+    [
+     "Preferred First Name",
+     "text",
+     true
+    ],
+    [
+     "Preferred Last Name",
+     "text",
+     true
+    ],
+    [
+     "Email",
+     "email",
+     true
+    ],
+    [
+     "Phone",
+     "tel",
+     false
+    ],
+    [
+     "Resume",
+     "file",
+     false
+    ],
+    [
+     "Pronouns",
+     "text",
+     false
+    ],
+    [
+     "How do you pronounce your name?",
+     "text",
+     false
+    ],
+    [
+     "LinkedIn Profile",
+     "text",
+     false
+    ],
+    [
+     "Start typing...",
+     "combobox",
+     false
+    ],
+    [
+     "Due to regulatory and security reasons, there’s a a number of countries where we cannot have Zapier teammates based. Additionally, because Zapier is an all-remote company and people can join our workforce from almost any country, we do not sponsor visas or transfers. Zapier teammates need to be authorized to work from their home location.",
+     "radio",
+     false
+    ],
+    [
+     "How’d you hear about this role?",
+     "radio",
+     false
+    ],
+    [
+     "Please share specific information on how you heard about this role (for example: what job board did you use, where was the job ad posted, etc.).",
+     "text",
+     true
+    ],
+    [
+     "What’s one way you’ve expanded your impact at work with AI — What are some key use cases within finance where you're leveraging this to make an impact?",
+     "text",
+     true
+    ],
+    [
+     "Tell us about your experience connecting marketing (or another function's) spend to downstream pipeline or revenue outcomes. What was your role in that analysis, and what did leadership do differently as a result?",
+     "textarea",
+     false
+    ],
+    [
+     "Tell me about your approach to building and maintaining relationships with internal business leaders.",
+     "textarea",
+     false
+    ],
+    [
+     "American Indian or Alaska Native",
+     "checkbox",
+     false
+    ],
+    [
+     "Asian",
+     "checkbox",
+     false
+    ],
+    [
+     "Black or African American",
+     "checkbox",
+     false
+    ],
+    [
+     "Hispanic or Latino",
+     "checkbox",
+     false
+    ],
+    [
+     "Native Hawaiian or Other Pacific Islander",
+     "checkbox",
+     false
+    ],
+    [
+     "Two or More Races",
+     "checkbox",
+     false
+    ],
+    [
+     "White",
+     "checkbox",
+     false
+    ],
+    [
+     "Not Listed",
+     "checkbox",
+     false
+    ],
+    [
+     "Non-Binary/Gender Non-Conforming",
+     "checkbox",
+     false
+    ],
+    [
+     "Man",
+     "checkbox",
+     false
+    ],
+    [
+     "Woman",
+     "checkbox",
+     false
+    ],
+    [
+     "Trans",
+     "checkbox",
+     false
+    ],
+    [
+     "What is your gender identity (expanded)?",
+     "checkbox",
+     false
+    ],
+    [
+     "What is your gender identity (expanded)?",
+     "checkbox",
+     false
+    ],
+    [
+     "What is your sexual orientation?",
+     "radio",
+     false
+    ],
+    [
+     "Active Duty Wartime or Campaign Badge Veteran",
+     "checkbox",
+     false
+    ],
+    [
+     "Armed Forces Service Medal Veteran",
+     "checkbox",
+     false
+    ],
+    [
+     "Disabled Veteran",
+     "checkbox",
+     false
+    ],
+    [
+     "Recently Separated Veteran",
+     "checkbox",
+     false
+    ],
+    [
+     "Prefer not to disclose",
+     "checkbox",
+     false
+    ],
+    [
+     "I do not identify as a veteran",
+     "checkbox",
+     false
+    ],
+    [
+     "Cognitive",
+     "checkbox",
+     false
+    ],
+    [
+     "Emotional",
+     "checkbox",
+     false
+    ],
+    [
+     "Mental",
+     "checkbox",
+     false
+    ],
+    [
+     "Physical",
+     "checkbox",
+     false
+    ],
+    [
+     "Hearing",
+     "checkbox",
+     false
+    ],
+    [
+     "Visual",
+     "checkbox",
+     false
+    ],
+    [
+     "I do not identify as a person with a disability",
+     "checkbox",
+     false
+    ]
+   ],
+   "direct": [
+    [
+     "Legal First Name",
+     "Mahendra"
+    ],
+    [
+     "Legal Last Name",
+     "Yadav"
+    ],
+    [
+     "Preferred First Name",
+     "Mahendra"
+    ],
+    [
+     "Preferred Last Name",
+     "Yadav"
+    ],
+    [
+     "Email",
+     "mahendra.iitg@gmail.com"
+    ],
+    [
+     "Phone",
+     "6264252896"
+    ],
+    [
+     "LinkedIn Profile",
+     "https://www.linkedin.com/in/mahendra-yadav/"
+    ]
+   ],
+   "toLLM": [
+    "Pronouns",
+    "How do you pronounce your name?",
+    "Start typing...",
+    "Due to regulatory and security reasons, there’s a a number of countries where we cannot have Zapier teammates based. Additionally, because Zapier is an all-remote company and people can join our workforce from almost any country, we do not sponsor visas or transfers. Zapier teammates need to be authorized to work from their home location.",
+    "How’d you hear about this role?",
+    "Please share specific information on how you heard about this role (for example: what job board did you use, where was the job ad posted, etc.).",
+    "What’s one way you’ve expanded your impact at work with AI — What are some key use cases within finance where you're leveraging this to make an impact?",
+    "Tell us about your experience connecting marketing (or another function's) spend to downstream pipeline or revenue outcomes. What was your role in that analysis, and what did leadership do differently as a result?",
+    "Tell me about your approach to building and maintaining relationships with internal business leaders.",
+    "What is your gender identity (expanded)?",
+    "What is your gender identity (expanded)?",
+    "What is your sexual orientation?"
+   ],
+   "readBack": true
+  },
+  {
+   "name": "Greenhouse: Cloudflare",
+   "fixture": "greenhouse-cloudflare.html",
+   "url": "https://job-boards.greenhouse.io/cloudflare/jobs/8276299",
+   "savedAt": "2026-11-02",
+   "fields": [
+    [
+     "First Name*",
+     "text",
+     true
+    ],
+    [
+     "Last Name*",
+     "text",
+     true
+    ],
+    [
+     "Email*",
+     "text",
+     true
+    ],
+    [
+     "Country*",
+     "combobox",
+     true
+    ],
+    [
+     "Phone*",
+     "tel",
+     true
+    ],
+    [
+     "Location (City)*",
+     "combobox",
+     true
+    ],
+    [
+     "Attach",
+     "file",
+     false
+    ],
+    [
+     "Attach",
+     "file",
+     false
+    ],
+    [
+     "Legal Name (if different than above)",
+     "text",
+     false
+    ],
+    [
+     "Would you like to include your LinkedIn profile, personal website or blog?",
+     "text",
+     false
+    ],
+    [
+     "How did you hear about this job?*",
+     "text",
+     true
+    ],
+    [
+     "Do you currently live or are you willing to relocate to the job’s location?*",
+     "combobox",
+     true
+    ],
+    [
+     "Do you now or will you in the future require immigration sponsorship to work at Cloudflare?*",
+     "combobox",
+     true
+    ],
+    [
+     "Acknowledge/Confirm",
+     "checkbox",
+     true
+    ],
+    [
+     "Gender",
+     "combobox",
+     false
+    ],
+    [
+     "Are you Hispanic/Latino?",
+     "combobox",
+     false
+    ],
+    [
+     "Veteran Status",
+     "combobox",
+     false
+    ]
+   ],
+   "direct": [
+    [
+     "First Name*",
+     "Mahendra"
+    ],
+    [
+     "Last Name*",
+     "Yadav"
+    ],
+    [
+     "Email*",
+     "mahendra.iitg@gmail.com"
+    ],
+    [
+     "Country*",
+     "India"
+    ],
+    [
+     "Phone*",
+     "6264252896"
+    ],
+    [
+     "Location (City)*",
+     "Bengaluru"
+    ],
+    [
+     "Legal Name (if different than above)",
+     "Mahendra Yadav"
+    ],
+    [
+     "Gender",
+     "Male"
+    ]
+   ],
+   "toLLM": [
+    "Would you like to include your LinkedIn profile, personal website or blog?",
+    "How did you hear about this job?*",
+    "Do you currently live or are you willing to relocate to the job’s location?*",
+    "Do you now or will you in the future require immigration sponsorship to work at Cloudflare?*",
+    "Are you Hispanic/Latino?",
+    "Veteran Status"
+   ],
+   "readBack": true
+  },
+  {
+   "name": "Greenhouse: Discord",
+   "fixture": "greenhouse-discord.html",
+   "url": "https://job-boards.greenhouse.io/discord/jobs/8847080002",
+   "savedAt": "2026-11-02",
+   "fields": [
+    [
+     "First Name*",
+     "text",
+     true
+    ],
+    [
+     "Last Name*",
+     "text",
+     true
+    ],
+    [
+     "Email*",
+     "text",
+     true
+    ],
+    [
+     "Country*",
+     "combobox",
+     true
+    ],
+    [
+     "Phone*",
+     "tel",
+     true
+    ],
+    [
+     "Location (City)*",
+     "combobox",
+     true
+    ],
+    [
+     "Attach",
+     "file",
+     false
+    ],
+    [
+     "Attach",
+     "file",
+     false
+    ],
+    [
+     "School",
+     "combobox",
+     false
+    ],
+    [
+     "Degree",
+     "combobox",
+     false
+    ],
+    [
+     "Discipline",
+     "combobox",
+     false
+    ],
+    [
+     "Why do you want to work at Discord?*",
+     "textarea",
+     true
+    ],
+    [
+     "LinkedIn Profile",
+     "text",
+     false
+    ],
+    [
+     "Website",
+     "text",
+     false
+    ],
+    [
+     "How did you hear about this job?",
+     "text",
+     false
+    ],
+    [
+     "Are you legally authorized to work in the United States for our Company?*",
+     "combobox",
+     true
+    ],
+    [
+     "Are you currently located in the US?*",
+     "combobox",
+     true
+    ],
+    [
+     "Are you currently based in or willing to relocate to the Bay Area for this position? *",
+     "combobox",
+     true
+    ],
+    [
+     "Gender*",
+     "combobox",
+     true
+    ],
+    [
+     "Race and Ethnicity*",
+     "combobox",
+     true
+    ],
+    [
+     "Veteran Status*",
+     "combobox",
+     true
+    ],
+    [
+     "Disability Status*",
+     "combobox",
+     true
+    ],
+    [
+     "Gender Identity (optional)",
+     "combobox",
+     false
+    ],
+    [
+     "Race or Ethnicity (optional)",
+     "combobox",
+     false
+    ],
+    [
+     "I consider myself a member of the LGBTQ+ community. (optional)",
+     "combobox",
+     false
+    ],
+    [
+     "By checking this box, I consent to Discord collecting, storing, and processing my responses to the demographic data surveys above.*",
+     "checkbox",
+     true
+    ]
+   ],
+   "direct": [
+    [
+     "First Name*",
+     "Mahendra"
+    ],
+    [
+     "Last Name*",
+     "Yadav"
+    ],
+    [
+     "Email*",
+     "mahendra.iitg@gmail.com"
+    ],
+    [
+     "Country*",
+     "India"
+    ],
+    [
+     "Phone*",
+     "6264252896"
+    ],
+    [
+     "Location (City)*",
+     "Bengaluru"
+    ],
+    [
+     "LinkedIn Profile",
+     "https://www.linkedin.com/in/mahendra-yadav/"
+    ],
+    [
+     "Website",
+     "https://www.mahendrayadavpm.in/"
+    ],
+    [
+     "Gender*",
+     "Male"
+    ],
+    [
+     "Gender Identity (optional)",
+     "Male"
+    ]
+   ],
+   "toLLM": [
+    "School",
+    "Degree",
+    "Discipline",
+    "Why do you want to work at Discord?*",
+    "How did you hear about this job?",
+    "Are you legally authorized to work in the United States for our Company?*",
+    "Are you currently located in the US?*",
+    "Are you currently based in or willing to relocate to the Bay Area for this position? *",
+    "Race and Ethnicity*",
+    "Veteran Status*",
+    "Disability Status*",
+    "Race or Ethnicity (optional)",
+    "I consider myself a member of the LGBTQ+ community. (optional)"
+   ],
+   "readBack": true
+  },
+  {
+   "name": "Greenhouse: Figma",
+   "fixture": "greenhouse-figma.html",
+   "url": "https://job-boards.greenhouse.io/figma/jobs/6119781004",
+   "savedAt": "2026-11-02",
+   "fields": [
+    [
+     "First Name*",
+     "text",
+     true
+    ],
+    [
+     "Last Name*",
+     "text",
+     true
+    ],
+    [
+     "Email*",
+     "text",
+     true
+    ],
+    [
+     "Country*",
+     "combobox",
+     true
+    ],
+    [
+     "Phone*",
+     "tel",
+     true
+    ],
+    [
+     "Location (City)*",
+     "combobox",
+     true
+    ],
+    [
+     "Attach",
+     "file",
+     false
+    ],
+    [
+     "LinkedIn Profile",
+     "text",
+     false
+    ],
+    [
+     "Other Website",
+     "text",
+     false
+    ],
+    [
+     "Why do you want to join Figma?*",
+     "textarea",
+     true
+    ],
+    [
+     "Pronouns",
+     "combobox",
+     false
+    ],
+    [
+     "Additional Information",
+     "textarea",
+     false
+    ],
+    [
+     "From where do you intend to work? *",
+     "text",
+     true
+    ],
+    [
+     "Preferred First Name",
+     "text",
+     false
+    ],
+    [
+     "Are you authorized to work in the country for which you applied? *",
+     "combobox",
+     true
+    ],
+    [
+     "Have you ever worked for Figma before, as an employee or a contractor/consultant? *",
+     "combobox",
+     true
+    ],
+    [
+     "Gender",
+     "combobox",
+     false
+    ],
+    [
+     "Are you Hispanic/Latino?",
+     "combobox",
+     false
+    ],
+    [
+     "Veteran Status",
+     "combobox",
+     false
+    ]
+   ],
+   "direct": [
+    [
+     "First Name*",
+     "Mahendra"
+    ],
+    [
+     "Last Name*",
+     "Yadav"
+    ],
+    [
+     "Email*",
+     "mahendra.iitg@gmail.com"
+    ],
+    [
+     "Country*",
+     "India"
+    ],
+    [
+     "Phone*",
+     "6264252896"
+    ],
+    [
+     "Location (City)*",
+     "Bengaluru"
+    ],
+    [
+     "LinkedIn Profile",
+     "https://www.linkedin.com/in/mahendra-yadav/"
+    ],
+    [
+     "Other Website",
+     "https://www.mahendrayadavpm.in/"
+    ],
+    [
+     "Preferred First Name",
+     "Mahendra"
+    ],
+    [
+     "Gender",
+     "Male"
+    ]
+   ],
+   "toLLM": [
+    "Why do you want to join Figma?*",
+    "Pronouns",
+    "Additional Information",
+    "From where do you intend to work? *",
+    "Are you authorized to work in the country for which you applied? *",
+    "Have you ever worked for Figma before, as an employee or a contractor/consultant? *",
+    "Are you Hispanic/Latino?",
+    "Veteran Status"
+   ],
+   "readBack": true
+  },
+  {
+   "name": "Greenhouse: Gitlab",
+   "fixture": "greenhouse-gitlab.html",
+   "url": "https://job-boards.greenhouse.io/gitlab/jobs/8658878002",
+   "savedAt": "2026-11-02",
+   "fields": [
+    [
+     "First Name*",
+     "text",
+     true
+    ],
+    [
+     "Last Name*",
+     "text",
+     true
+    ],
+    [
+     "Email*",
+     "text",
+     true
+    ],
+    [
+     "Country",
+     "combobox",
+     false
+    ],
+    [
+     "Phone",
+     "tel",
+     false
+    ],
+    [
+     "Attach",
+     "file",
+     false
+    ],
+    [
+     "Attach",
+     "file",
+     false
+    ],
+    [
+     "LinkedIn Profile",
+     "text",
+     false
+    ],
+    [
+     "What's the name you'd prefer us to use throughout the interview process?",
+     "text",
+     false
+    ],
+    [
+     "Please choose the country in which you are located.",
+     "combobox",
+     false
+    ],
+    [
+     "Are you subject to any employment agreements and/or post-employment restrictions with your current employer or a past employer?*",
+     "combobox",
+     true
+    ],
+    [
+     "It is important to us to create an accessible and inclusive interview experience. Please let us know if there are any adjustments we can make to assist you during the hiring and interview process.",
+     "text",
+     false
+    ],
+    [
+     "Will you now or in the future require sponsorship for a visa to remain in your current location?*",
+     "combobox",
+     true
+    ],
+    [
+     "Have you previously worked at or consulted for GitLab?*",
+     "combobox",
+     true
+    ],
+    [
+     "What is your current country of residence?*",
+     "combobox",
+     true
+    ],
+    [
+     "Gender",
+     "combobox",
+     false
+    ],
+    [
+     "Are you Hispanic/Latino?",
+     "combobox",
+     false
+    ],
+    [
+     "Veteran Status",
+     "combobox",
+     false
+    ]
+   ],
+   "direct": [
+    [
+     "First Name*",
+     "Mahendra"
+    ],
+    [
+     "Last Name*",
+     "Yadav"
+    ],
+    [
+     "Email*",
+     "mahendra.iitg@gmail.com"
+    ],
+    [
+     "Country",
+     "India"
+    ],
+    [
+     "Phone",
+     "6264252896"
+    ],
+    [
+     "LinkedIn Profile",
+     "https://www.linkedin.com/in/mahendra-yadav/"
+    ],
+    [
+     "Gender",
+     "Male"
+    ]
+   ],
+   "toLLM": [
+    "What's the name you'd prefer us to use throughout the interview process?",
+    "Please choose the country in which you are located.",
+    "Are you subject to any employment agreements and/or post-employment restrictions with your current employer or a past employer?*",
+    "It is important to us to create an accessible and inclusive interview experience. Please let us know if there are any adjustments we can make to assist you during the hiring and interview process.",
+    "Will you now or in the future require sponsorship for a visa to remain in your current location?*",
+    "Have you previously worked at or consulted for GitLab?*",
+    "What is your current country of residence?*",
+    "Are you Hispanic/Latino?",
+    "Veteran Status"
+   ],
+   "readBack": true
+  },
+  {
+   "name": "Greenhouse: Groww",
+   "fixture": "greenhouse-groww.html",
+   "url": "https://job-boards.eu.greenhouse.io/groww/jobs/4970739101",
+   "savedAt": "2026-11-02",
+   "fields": [
+    [
+     "First Name*",
+     "text",
+     true
+    ],
+    [
+     "Last Name*",
+     "text",
+     true
+    ],
+    [
+     "Email*",
+     "text",
+     true
+    ],
+    [
+     "Country*",
+     "combobox",
+     true
+    ],
+    [
+     "Phone*",
+     "tel",
+     true
+    ],
+    [
+     "Location (City)*",
+     "combobox",
+     true
+    ],
+    [
+     "Attach",
+     "file",
+     false
+    ],
+    [
+     "LinkedIn Profile Link",
+     "text",
+     false
+    ],
+    [
+     "What is the notice period in your current employment?",
+     "combobox",
+     false
+    ],
+    [
+     "Do you have a relative/ family member working currently in Groww?*",
+     "combobox",
+     true
+    ],
+    [
+     "Have you previously been employed by Groww in any capacity (e.g., full-time, intern, contractor)?*",
+     "combobox",
+     true
+    ],
+    [
+     "Do you provide your consent for us to conduct your background verification (BGV) and reference checks?*",
+     "combobox",
+     true
+    ]
+   ],
+   "direct": [
+    [
+     "First Name*",
+     "Mahendra"
+    ],
+    [
+     "Last Name*",
+     "Yadav"
+    ],
+    [
+     "Email*",
+     "mahendra.iitg@gmail.com"
+    ],
+    [
+     "Country*",
+     "India"
+    ],
+    [
+     "Phone*",
+     "6264252896"
+    ],
+    [
+     "Location (City)*",
+     "Bengaluru"
+    ],
+    [
+     "LinkedIn Profile Link",
+     "https://www.linkedin.com/in/mahendra-yadav/"
+    ]
+   ],
+   "toLLM": [
+    "What is the notice period in your current employment?",
+    "Do you have a relative/ family member working currently in Groww?*",
+    "Have you previously been employed by Groww in any capacity (e.g., full-time, intern, contractor)?*",
+    "Do you provide your consent for us to conduct your background verification (BGV) and reference checks?*"
+   ],
+   "readBack": true
+  },
+  {
+   "name": "Greenhouse: Hackerrank",
+   "fixture": "greenhouse-hackerrank.html",
+   "url": "https://job-boards.greenhouse.io/hackerrank/jobs/7567121",
+   "savedAt": "2026-11-02",
+   "fields": [
+    [
+     "First Name*",
+     "text",
+     true
+    ],
+    [
+     "Last Name*",
+     "text",
+     true
+    ],
+    [
+     "Email*",
+     "text",
+     true
+    ],
+    [
+     "Country*",
+     "combobox",
+     true
+    ],
+    [
+     "Phone*",
+     "tel",
+     true
+    ],
+    [
+     "Attach",
+     "file",
+     false
+    ],
+    [
+     "Do you have a minimum of 3+ years of experience hunting or farming large enterprise customers for a SaaS platform?*",
+     "combobox",
+     true
+    ],
+    [
+     "What was your annual quota for each of the past 3 years and what was your % achievement against quota?*",
+     "text",
+     true
+    ],
+    [
+     "Have you sold to C-level executives? *",
+     "combobox",
+     true
+    ],
+    [
+     "What was your largest deal in annual ARR? *",
+     "text",
+     true
+    ],
+    [
+     "What's your current location (both city and state)?*",
+     "text",
+     true
+    ],
+    [
+     "What are your target OTE salary expectations?*",
+     "textarea",
+     true
+    ],
+    [
+     "Are you legally authorized to work in the United States?*",
+     "combobox",
+     true
+    ],
+    [
+     "Will you now or in the future require sponsorship for employment visa status (e.g. H-1B visa status)?*",
+     "combobox",
+     true
+    ],
+    [
+     "LinkedIn Profile*",
+     "text",
+     true
+    ]
+   ],
+   "direct": [
+    [
+     "First Name*",
+     "Mahendra"
+    ],
+    [
+     "Last Name*",
+     "Yadav"
+    ],
+    [
+     "Email*",
+     "mahendra.iitg@gmail.com"
+    ],
+    [
+     "Country*",
+     "India"
+    ],
+    [
+     "Phone*",
+     "6264252896"
+    ],
+    [
+     "LinkedIn Profile*",
+     "https://www.linkedin.com/in/mahendra-yadav/"
+    ]
+   ],
+   "toLLM": [
+    "Do you have a minimum of 3+ years of experience hunting or farming large enterprise customers for a SaaS platform?*",
+    "What was your annual quota for each of the past 3 years and what was your % achievement against quota?*",
+    "Have you sold to C-level executives? *",
+    "What was your largest deal in annual ARR? *",
+    "What's your current location (both city and state)?*",
+    "What are your target OTE salary expectations?*",
+    "Are you legally authorized to work in the United States?*",
+    "Will you now or in the future require sponsorship for employment visa status (e.g. H-1B visa status)?*"
+   ],
+   "readBack": true
+  },
+  {
+   "name": "Greenhouse: Okta (company careers site)",
+   "fixture": "greenhouse-okta.html",
+   "url": "https://www.okta.com/company/careers/rd/director-product-manager-okta-identity-threat-detection-and-response-products/",
+   "savedAt": "2026-11-02",
+   "fields": [
+    [
+     "First Name",
+     "text",
+     true
+    ],
+    [
+     "Last Name",
+     "text",
+     true
+    ],
+    [
+     "Email",
+     "email",
+     true
+    ],
+    [
+     "Phone",
+     "text",
+     false
+    ],
+    [
+     "Resume",
+     "radio",
+     false
+    ],
+    [
+     "Resume/CV",
+     "file",
+     false
+    ],
+    [
+     "Cover Letter",
+     "radio",
+     false
+    ],
+    [
+     "Cover Letter",
+     "file",
+     false
+    ],
+    [
+     "LinkedIn Profile",
+     "text",
+     false
+    ],
+    [
+     "Website",
+     "text",
+     false
+    ],
+    [
+     "Are you legally authorized to work in the country you reside?",
+     "select",
+     true
+    ],
+    [
+     "Will you now or in the future require Visa Sponsorship?",
+     "select",
+     true
+    ],
+    [
+     "To the best of your knowledge, do you have any family members / relatives or personal relationships at Okta or at any suppliers, partners, or vendors that have a business relationship with Okta? (For purposes of this question, a “family member / relative or personal relationship” is defined as close personal friends (including sexual and/or romantic relationships), close relatives (spouse, partner, children, cousins, aunts, uncles, nieces, nephews, grandparents or grandchildren), someone who lives in your household, or anyone else with whom you have a close enough personal relationship or connection that it could improperly bias your conduct or decision making or be perceived to be capable of impacting your conduct or decision making.",
+     "select",
+     true
+    ],
+    [
+     "If yes, please identify name of person / vendor and describe relationship / association:",
+     "text",
+     false
+    ],
+    [
+     "Do you have any outside business activity(ies) (advisory, consulting, or board roles, or side businesses) that you would continue engaging in or plan to engage in if you joined Okta in this role?",
+     "select",
+     true
+    ],
+    [
+     "If yes, please describe:",
+     "text",
+     false
+    ],
+    [
+     "Have you been employed by Okta, Inc. or any of its subsidiaries in the past?",
+     "select",
+     true
+    ],
+    [
+     "I acknowledge",
+     "checkbox",
+     true
+    ],
+    [
+     "Yes",
+     "checkbox",
+     false
+    ],
+    [
+     "Veteran Status",
+     "select",
+     false
+    ],
+    [
+     "Race",
+     "select",
+     false
+    ],
+    [
+     "Gender",
+     "select",
+     false
+    ],
+    [
+     "Apply",
+     "submit",
+     false
+    ]
+   ],
+   "direct": [
+    [
+     "First Name",
+     "Mahendra"
+    ],
+    [
+     "Last Name",
+     "Yadav"
+    ],
+    [
+     "Email",
+     "mahendra.iitg@gmail.com"
+    ],
+    [
+     "Phone",
+     "6264252896"
+    ],
+    [
+     "LinkedIn Profile",
+     "https://www.linkedin.com/in/mahendra-yadav/"
+    ],
+    [
+     "Website",
+     "https://www.mahendrayadavpm.in/"
+    ],
+    [
+     "Gender",
+     "Male"
+    ]
+   ],
+   "toLLM": [
+    "Resume",
+    "Are you legally authorized to work in the country you reside?",
+    "Will you now or in the future require Visa Sponsorship?",
+    "To the best of your knowledge, do you have any family members / relatives or personal relationships at Okta or at any suppliers, partners, or vendors that have a business relationship with Okta? (For purposes of this question, a “family member / relative or personal relationship” is defined as close personal friends (including sexual and/or romantic relationships), close relatives (spouse, partner, children, cousins, aunts, uncles, nieces, nephews, grandparents or grandchildren), someone who lives in your household, or anyone else with whom you have a close enough personal relationship or connection that it could improperly bias your conduct or decision making or be perceived to be capable of impacting your conduct or decision making.",
+    "If yes, please identify name of person / vendor and describe relationship / association:",
+    "Do you have any outside business activity(ies) (advisory, consulting, or board roles, or side businesses) that you would continue engaging in or plan to engage in if you joined Okta in this role?",
+    "If yes, please describe:",
+    "Have you been employed by Okta, Inc. or any of its subsidiaries in the past?",
+    "Veteran Status",
+    "Race",
+    "Apply"
+   ],
+   "readBack": true
+  },
+  {
+   "name": "Greenhouse: Twilio",
+   "fixture": "greenhouse-twilio.html",
+   "url": "https://job-boards.greenhouse.io/twilio/jobs/8236862",
+   "savedAt": "2026-11-02",
+   "fields": [
+    [
+     "First Name*",
+     "text",
+     true
+    ],
+    [
+     "Last Name*",
+     "text",
+     true
+    ],
+    [
+     "Preferred First Name*",
+     "text",
+     true
+    ],
+    [
+     "Email*",
+     "text",
+     true
+    ],
+    [
+     "Country*",
+     "combobox",
+     true
+    ],
+    [
+     "Phone*",
+     "tel",
+     true
+    ],
+    [
+     "Location (City)*",
+     "combobox",
+     true
+    ],
+    [
+     "Attach",
+     "file",
+     false
+    ],
+    [
+     "Attach",
+     "file",
+     false
+    ],
+    [
+     "LinkedIn Profile URL",
+     "text",
+     false
+    ],
+    [
+     "How did you hear about Twilio? *",
+     "checkbox",
+     true
+    ],
+    [
+     "Are you legally authorized to work in the United States?*",
+     "combobox",
+     true
+    ],
+    [
+     "Will you now or in the future require sponsorship for employment visa status (e.g., H-1B visa status)?*",
+     "combobox",
+     true
+    ],
+    [
+     "Please indicate whether you are either a citizen or resident of any of the following countries: Cuba, Iran, North Korea, Syria or Crimea Region of Ukraine. *",
+     "combobox",
+     true
+    ],
+    [
+     "Acknowledge",
+     "checkbox",
+     true
+    ],
+    [
+     "Acknowledge",
+     "checkbox",
+     true
+    ],
+    [
+     "Voluntary Self-Identification of Gender*",
+     "combobox",
+     true
+    ],
+    [
+     "Voluntary Self-Identification of Race/Ethnicity*",
+     "combobox",
+     true
+    ],
+    [
+     "Protected Veteran Status*",
+     "combobox",
+     true
+    ],
+    [
+     "Voluntary Self-Identification of Sexual Orientation*",
+     "combobox",
+     true
+    ],
+    [
+     "By checking this box, I consent to Twilio collecting, storing, and processing my responses to the demographic data surveys above.*",
+     "checkbox",
+     true
+    ]
+   ],
+   "direct": [
+    [
+     "First Name*",
+     "Mahendra"
+    ],
+    [
+     "Last Name*",
+     "Yadav"
+    ],
+    [
+     "Preferred First Name*",
+     "Mahendra"
+    ],
+    [
+     "Email*",
+     "mahendra.iitg@gmail.com"
+    ],
+    [
+     "Country*",
+     "India"
+    ],
+    [
+     "Phone*",
+     "6264252896"
+    ],
+    [
+     "Location (City)*",
+     "Bengaluru"
+    ],
+    [
+     "LinkedIn Profile URL",
+     "https://www.linkedin.com/in/mahendra-yadav/"
+    ],
+    [
+     "How did you hear about Twilio? *",
+     "LinkedIn"
+    ],
+    [
+     "Voluntary Self-Identification of Gender*",
+     "Male"
+    ]
+   ],
+   "toLLM": [
+    "Are you legally authorized to work in the United States?*",
+    "Will you now or in the future require sponsorship for employment visa status (e.g., H-1B visa status)?*",
+    "Please indicate whether you are either a citizen or resident of any of the following countries: Cuba, Iran, North Korea, Syria or Crimea Region of Ukraine. *",
+    "Voluntary Self-Identification of Race/Ethnicity*",
+    "Protected Veteran Status*",
+    "Voluntary Self-Identification of Sexual Orientation*"
+   ],
+   "readBack": true
+  },
+  {
+   "name": "Lever: Binance",
+   "fixture": "lever-binance.html",
+   "url": "https://jobs.lever.co/binance/7c5d03b5-ce74-45b7-b38d-c46adce58047/apply",
+   "savedAt": "2026-11-02",
+   "fields": [
+    [
+     "Which location are you applying for?",
+     "select",
+     false
+    ],
+    [
+     "Resume/CV",
+     "file",
+     false
+    ],
+    [
+     "Full name✱",
+     "text",
+     true
+    ],
+    [
+     "Email✱",
+     "email",
+     true
+    ],
+    [
+     "Phone",
+     "text",
+     false
+    ],
+    [
+     "Current location",
+     "text",
+     false
+    ],
+    [
+     "Current company",
+     "text",
+     false
+    ],
+    [
+     "LinkedIn account or any other links URL",
+     "text",
+     false
+    ],
+    [
+     "Where do you currently live?✱",
+     "select",
+     true
+    ],
+    [
+     "What is your nationality?✱",
+     "select",
+     true
+    ],
+    [
+     "How did you hear about our job opening? Please select one of the following options:✱",
+     "radio",
+     true
+    ]
+   ],
+   "direct": [
+    [
+     "Full name✱",
+     "Mahendra Yadav"
+    ],
+    [
+     "Email✱",
+     "mahendra.iitg@gmail.com"
+    ],
+    [
+     "Phone",
+     "6264252896"
+    ],
+    [
+     "Current location",
+     "Bengaluru"
+    ],
+    [
+     "Current company",
+     "Nu10 (AI Product Development)"
+    ],
+    [
+     "How did you hear about our job opening? Please select one of the following options:✱",
+     "LinkedIn job posting"
+    ]
+   ],
+   "toLLM": [
+    "Which location are you applying for?",
+    "LinkedIn account or any other links URL",
+    "Where do you currently live?✱",
+    "What is your nationality?✱"
+   ],
+   "readBack": true
+  },
+  {
+   "name": "Lever: Meesho",
+   "fixture": "lever-meesho.html",
+   "url": "https://jobs.lever.co/meesho/d7924eb1-301e-4098-ab7b-f3a4c92c210a/apply",
+   "savedAt": "2026-11-02",
+   "fields": [
+    [
+     "Resume/CV ✱",
+     "file",
+     true
+    ],
+    [
+     "Full name✱",
+     "text",
+     true
+    ],
+    [
+     "Email✱",
+     "email",
+     true
+    ],
+    [
+     "Phone ✱",
+     "text",
+     true
+    ],
+    [
+     "Current location",
+     "text",
+     false
+    ],
+    [
+     "Current company ✱",
+     "text",
+     true
+    ],
+    [
+     "LinkedIn URL",
+     "text",
+     false
+    ],
+    [
+     "Naukri URL",
+     "text",
+     false
+    ],
+    [
+     "GitHub URL",
+     "text",
+     false
+    ],
+    [
+     "Portfolio URL",
+     "text",
+     false
+    ],
+    [
+     "Other URL",
+     "text",
+     false
+    ],
+    [
+     "As part of our commitment to creating a diverse and inclusive workplace, we invite you to voluntarily disclose your gender. This information is collected for record-keeping and statistical purposes only and will not be used in any hiring decisions or affect your job application process in any way. Please note that Meesho is an Equal Opportunity Employer, and all applicants will be considered for employment without regard to gender, race, ethnicity, disability, or any other characteristic protected by law. Your response will be kept confidential and will only be accessible to limited authorized personnel on need to know basis. Please select the option that best describes your gender:✱",
+     "radio",
+     true
+    ],
+    [
+     "Total Years of Experience✱",
+     "text",
+     true
+    ],
+    [
+     "Relevant Experience in Product✱",
+     "text",
+     true
+    ],
+    [
+     "Are you based out of Bangalore ?✱",
+     "radio",
+     true
+    ],
+    [
+     "Are you willing to relocate to Bangalore?✱",
+     "radio",
+     true
+    ],
+    [
+     "Current Compensation (Yearly)✱",
+     "text",
+     true
+    ],
+    [
+     "Expected Compensation (Yearly)✱",
+     "text",
+     true
+    ],
+    [
+     "Notice Period (In days)✱",
+     "text",
+     true
+    ],
+    [
+     "Do you have experience Managing Team?✱",
+     "radio",
+     true
+    ],
+    [
+     "How did you get to know about this role?✱",
+     "select",
+     true
+    ]
+   ],
+   "direct": [
+    [
+     "Full name✱",
+     "Mahendra Yadav"
+    ],
+    [
+     "Email✱",
+     "mahendra.iitg@gmail.com"
+    ],
+    [
+     "Phone ✱",
+     "6264252896"
+    ],
+    [
+     "Current location",
+     "Bengaluru"
+    ],
+    [
+     "LinkedIn URL",
+     "https://www.linkedin.com/in/mahendra-yadav/"
+    ],
+    [
+     "GitHub URL",
+     "https://github.com/ymahee363"
+    ],
+    [
+     "Portfolio URL",
+     "https://www.mahendrayadavpm.in/"
+    ]
+   ],
+   "toLLM": [
+    "Current company ✱",
+    "Naukri URL",
+    "Other URL",
+    "As part of our commitment to creating a diverse and inclusive workplace, we invite you to voluntarily disclose your gender. This information is collected for record-keeping and statistical purposes only and will not be used in any hiring decisions or affect your job application process in any way. Please note that Meesho is an Equal Opportunity Employer, and all applicants will be considered for employment without regard to gender, race, ethnicity, disability, or any other characteristic protected by law. Your response will be kept confidential and will only be accessible to limited authorized personnel on need to know basis. Please select the option that best describes your gender:✱",
+    "Total Years of Experience✱",
+    "Relevant Experience in Product✱",
+    "Are you based out of Bangalore ?✱",
+    "Are you willing to relocate to Bangalore?✱",
+    "Current Compensation (Yearly)✱",
+    "Expected Compensation (Yearly)✱",
+    "Notice Period (In days)✱",
+    "Do you have experience Managing Team?✱",
+    "How did you get to know about this role?✱"
+   ],
+   "readBack": true
+  },
+  {
+   "name": "Lever: Palantir",
+   "fixture": "lever-palantir.html",
+   "url": "https://jobs.lever.co/palantir/6ed76ce8-4156-4b60-b120-403538bd66cd/apply",
+   "savedAt": "2026-11-02",
+   "fields": [
+    [
+     "Resume/CV ✱",
+     "file",
+     true
+    ],
+    [
+     "Full name✱",
+     "text",
+     true
+    ],
+    [
+     "Email✱",
+     "email",
+     true
+    ],
+    [
+     "Phone",
+     "text",
+     false
+    ],
+    [
+     "Current location ✱",
+     "text",
+     true
+    ],
+    [
+     "Current company",
+     "text",
+     false
+    ],
+    [
+     "LinkedIn URL",
+     "text",
+     false
+    ],
+    [
+     "GitHub URL",
+     "text",
+     false
+    ],
+    [
+     "Portfolio URL",
+     "text",
+     false
+    ],
+    [
+     "Language Skill(s) (Check all that apply)✱",
+     "checkbox",
+     true
+    ],
+    [
+     "Preferred Name | What would you like us to call you?",
+     "text",
+     false
+    ],
+    [
+     "Name Pronunciation | How do you pronounce your name?",
+     "text",
+     false
+    ],
+    [
+     "Are you legally authorized to work in the country for which you are applying?✱",
+     "radio",
+     true
+    ],
+    [
+     "Will you now or in the future require sponsorship for employment visa status (e.g., H-1B, etc.)?✱",
+     "radio",
+     true
+    ],
+    [
+     "cards[3da58b41 acf5 40a1 945e c7f047ef8050][field0]",
+     "select",
+     true
+    ],
+    [
+     "Please tell us how you heard about this opportunity.✱",
+     "select",
+     true
+    ],
+    [
+     "What has been your favorite project or proudest accomplishment? Why?",
+     "textarea",
+     false
+    ],
+    [
+     "Why do you want to work at Palantir?",
+     "textarea",
+     false
+    ],
+    [
+     "As part of our interview process, we may use AI notetakers to transcribe conversations for accuracy and efficiency. Please see our candidate privacy policy for more information on how we process your data. Your decision to opt in or out of this tooling will not impact your candidacy.✱",
+     "radio",
+     true
+    ],
+    [
+     "Are you a Singapore citizen?✱",
+     "radio",
+     true
+    ],
+    [
+     "Are you a Singapore permanent resident?✱",
+     "radio",
+     true
+    ],
+    [
+     "Additional information",
+     "textarea",
+     false
+    ]
+   ],
+   "direct": [
+    [
+     "Full name✱",
+     "Mahendra Yadav"
+    ],
+    [
+     "Email✱",
+     "mahendra.iitg@gmail.com"
+    ],
+    [
+     "Phone",
+     "6264252896"
+    ],
+    [
+     "Current company",
+     "Nu10 (AI Product Development)"
+    ],
+    [
+     "LinkedIn URL",
+     "https://www.linkedin.com/in/mahendra-yadav/"
+    ],
+    [
+     "GitHub URL",
+     "https://github.com/ymahee363"
+    ],
+    [
+     "Portfolio URL",
+     "https://www.mahendrayadavpm.in/"
+    ]
+   ],
+   "toLLM": [
+    "Current location ✱",
+    "Language Skill(s) (Check all that apply)✱",
+    "Preferred Name | What would you like us to call you?",
+    "Name Pronunciation | How do you pronounce your name?",
+    "Are you legally authorized to work in the country for which you are applying?✱",
+    "Will you now or in the future require sponsorship for employment visa status (e.g., H-1B, etc.)?✱",
+    "cards[3da58b41 acf5 40a1 945e c7f047ef8050][field0]",
+    "Please tell us how you heard about this opportunity.✱",
+    "What has been your favorite project or proudest accomplishment? Why?",
+    "Why do you want to work at Palantir?",
+    "As part of our interview process, we may use AI notetakers to transcribe conversations for accuracy and efficiency. Please see our candidate privacy policy for more information on how we process your data. Your decision to opt in or out of this tooling will not impact your candidacy.✱",
+    "Are you a Singapore citizen?✱",
+    "Are you a Singapore permanent resident?✱",
+    "Additional information"
+   ],
+   "readBack": true
+  },
+  {
+   "name": "Lever: Paytm",
+   "fixture": "lever-paytm.html",
+   "url": "https://jobs.lever.co/paytm/cf1076c8-e8be-4fc4-8112-aa55051de742/apply",
+   "savedAt": "2026-11-02",
+   "fields": [
+    [
+     "Which location are you applying for? ✱",
+     "select",
+     true
+    ],
+    [
+     "Resume/CV ✱",
+     "file",
+     true
+    ],
+    [
+     "Full name✱",
+     "text",
+     true
+    ],
+    [
+     "Email✱",
+     "email",
+     true
+    ],
+    [
+     "Phone ✱",
+     "text",
+     true
+    ],
+    [
+     "Current location ✱",
+     "text",
+     true
+    ],
+    [
+     "Current company ✱",
+     "text",
+     true
+    ],
+    [
+     "LinkedIn URL",
+     "text",
+     false
+    ],
+    [
+     "Github URL",
+     "text",
+     false
+    ],
+    [
+     "Other website",
+     "text",
+     false
+    ],
+    [
+     "What is your location?",
+     "select",
+     false
+    ]
+   ],
+   "direct": [
+    [
+     "Full name✱",
+     "Mahendra Yadav"
+    ],
+    [
+     "Email✱",
+     "mahendra.iitg@gmail.com"
+    ],
+    [
+     "Phone ✱",
+     "6264252896"
+    ],
+    [
+     "LinkedIn URL",
+     "https://www.linkedin.com/in/mahendra-yadav/"
+    ],
+    [
+     "Github URL",
+     "https://github.com/ymahee363"
+    ],
+    [
+     "Other website",
+     "https://www.mahendrayadavpm.in/"
+    ]
+   ],
+   "toLLM": [
+    "Which location are you applying for? ✱",
+    "Current location ✱",
+    "Current company ✱",
+    "What is your location?"
+   ],
+   "readBack": true
+  },
+  {
+   "name": "Phenom: Ebay (company careers site)",
+   "fixture": "phenom-ebay.html",
+   "url": "https://jobs.ebayinc.com/us/en/apply?jobSeqNo=EBAEBAUSR0077220EXTERNALENUS&source=Indeed&step=1&stepname=personalInformation",
+   "savedAt": "2026-11-02",
+   "fields": [
+    [
+     "Country*",
+     "select",
+     true
+    ],
+    [
+     "Given Name(s)*",
+     "text",
+     true
+    ],
+    [
+     "Family Name*",
+     "text",
+     true
+    ],
+    [
+     "Local Given Name(s)",
+     "text",
+     false
+    ],
+    [
+     "Local Family Name",
+     "text",
+     false
+    ],
+    [
+     "Address Line 1",
+     "text",
+     false
+    ],
+    [
+     "City*",
+     "text",
+     true
+    ],
+    [
+     "Postal Code",
+     "text",
+     false
+    ],
+    [
+     "State",
+     "select",
+     false
+    ],
+    [
+     "Email Address*",
+     "email",
+     true
+    ],
+    [
+     "Phone Device Type",
+     "select",
+     false
+    ],
+    [
+     "Country Phone Code*",
+     "select",
+     true
+    ],
+    [
+     "Phone Number*",
+     "text",
+     true
+    ],
+    [
+     "Phone Extension",
+     "text",
+     false
+    ],
+    [
+     "How Did You Hear About Us?*",
+     "select",
+     true
+    ]
+   ],
+   "direct": [
+    [
+     "Country*",
+     "India"
+    ],
+    [
+     "Given Name(s)*",
+     "Mahendra"
+    ],
+    [
+     "Family Name*",
+     "Yadav"
+    ],
+    [
+     "City*",
+     "Bengaluru"
+    ],
+    [
+     "Email Address*",
+     "mahendra.iitg@gmail.com"
+    ],
+    [
+     "Country Phone Code*",
+     "India (+91)"
+    ],
+    [
+     "Phone Number*",
+     "6264252896"
+    ],
+    [
+     "How Did You Hear About Us?*",
+     "LinkedIn"
+    ]
+   ],
+   "toLLM": [
+    "Local Given Name(s)",
+    "Local Family Name",
+    "Address Line 1",
+    "Postal Code",
+    "State",
+    "Phone Device Type",
+    "Phone Extension"
+   ],
+   "readBack": true
+  },
+  {
+   "name": "Workable: Huggingface",
+   "fixture": "workable-huggingface.html",
+   "url": "https://apply.workable.com/huggingface/j/DB4D7C0EC8/apply/",
+   "savedAt": "2026-11-02",
+   "fields": [
+    [
+     "First name",
+     "text",
+     true
+    ],
+    [
+     "Last name",
+     "text",
+     true
+    ],
+    [
+     "Email",
+     "email",
+     true
+    ],
+    [
+     "Summary",
+     "textarea",
+     false
+    ],
+    [
+     "Github profile",
+     "textarea",
+     true
+    ],
+    [
+     "Linkedin",
+     "textarea",
+     true
+    ],
+    [
+     "Cover letter",
+     "textarea",
+     false
+    ],
+    [
+     "Expected salary",
+     "text",
+     false
+    ],
+    [
+     "Notice period / availability",
+     "combobox",
+     false
+    ],
+    [
+     "Are you eligible to work in the country you are applying?",
+     "radio",
+     false
+    ],
+    [
+     "How did you hear about us?",
+     "text",
+     false
+    ],
+    [
+     "Can you confirm that everything in this application is true and your own, including your experience and identity?",
+     "radio",
+     true
+    ],
+    [
+     "Did you start your first written answer below with the exact phrase we asked for in the job description?",
+     "radio",
+     true
+    ],
+    [
+     "Do you have a public track record of open-source contributions, such as merged pull requests to impactful libraries, or projects you've authored or actively maintain?",
+     "radio",
+     true
+    ],
+    [
+     "Why Hugging Face, and where would you make the biggest difference in this role? Write it yourself, in your own words. We read every answer and we're after the specifics only you could give us, so generic or copy-pasted ones won't get far. 🤗",
+     "textarea",
+     true
+    ],
+    [
+     "Share 2–3 of your open-source contributions with links (GitHub PRs, issues, or projects you maintain), and a quick note on your role and what each one involved. This one really matters to us, so please give it a real go. Blank or \"N/A\" answers won't move forward. Don't overthink it though, small or in-progress work is genuinely welcome, we just want to see something real.",
+     "textarea",
+     true
+    ]
+   ],
+   "direct": [
+    [
+     "First name",
+     "Mahendra"
+    ],
+    [
+     "Last name",
+     "Yadav"
+    ],
+    [
+     "Email",
+     "mahendra.iitg@gmail.com"
+    ],
+    [
+     "Github profile",
+     "https://github.com/ymahee363"
+    ],
+    [
+     "Linkedin",
+     "https://www.linkedin.com/in/mahendra-yadav/"
+    ]
+   ],
+   "toLLM": [
+    "Summary",
+    "Expected salary",
+    "Notice period / availability",
+    "Are you eligible to work in the country you are applying?",
+    "How did you hear about us?",
+    "Can you confirm that everything in this application is true and your own, including your experience and identity?",
+    "Did you start your first written answer below with the exact phrase we asked for in the job description?",
+    "Do you have a public track record of open-source contributions, such as merged pull requests to impactful libraries, or projects you've authored or actively maintain?",
+    "Why Hugging Face, and where would you make the biggest difference in this role? Write it yourself, in your own words. We read every answer and we're after the specifics only you could give us, so generic or copy-pasted ones won't get far. 🤗",
+    "Share 2–3 of your open-source contributions with links (GitHub PRs, issues, or projects you maintain), and a quick note on your role and what each one involved. This one really matters to us, so please give it a real go. Blank or \"N/A\" answers won't move forward. Don't overthink it though, small or in-progress work is genuinely welcome, we just want to see something real."
+   ],
+   "readBack": true
+  }
+ ]
+}

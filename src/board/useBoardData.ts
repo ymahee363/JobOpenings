@@ -2,19 +2,27 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getDb } from '../db/db';
 import { DEFAULT_FILTERS, DEFAULT_HIDDEN_TITLE_WORDS, normalizeFilters, type Filters } from '../shared/board';
 import { DB_CHANGED } from '../shared/messages';
+import {
+  DEFAULT_AGENT_STATE, normalizeAgentConfig, DEFAULT_AGENT_CONFIG, type AgentConfig, type AgentState,
+} from '../shared/auto-apply/config';
 import { DEFAULT_SAFETY, type SafetyState } from '../shared/safety';
 import { load, save, type PendingApply } from '../shared/store';
+import type { Attempt } from '../shared/auto-apply/config';
 import { DEFAULT_HEALTH, DEFAULT_SETTINGS, type Health, type Job, type JobStatus, type Settings } from '../shared/types';
 
 export interface BoardData {
   loaded: boolean;
   jobs: Job[];
   statuses: JobStatus[];
+  /** The auto-apply agent's attempts, for the Extra Details tab. */
+  attempts: Attempt[];
   health: Health;
   safety: SafetyState;
   settings: Settings;
   filters: Filters;
   hiddenTitleWords: string[];
+  agent: AgentConfig;
+  agentState: AgentState;
   pendingApply: PendingApply | null;
   /** Previous visit time; jobs first seen after it are "new". */
   lastVisitAt: number | null;
@@ -29,11 +37,14 @@ export function useBoardData() {
     loaded: false,
     jobs: [],
     statuses: [],
+    attempts: [],
     health: DEFAULT_HEALTH,
     safety: DEFAULT_SAFETY,
     settings: DEFAULT_SETTINGS,
     filters: DEFAULT_FILTERS,
     hiddenTitleWords: DEFAULT_HIDDEN_TITLE_WORDS,
+    agent: DEFAULT_AGENT_CONFIG,
+    agentState: DEFAULT_AGENT_STATE,
     pendingApply: null,
     lastVisitAt: null,
     now: Date.now(),
@@ -41,16 +52,20 @@ export function useBoardData() {
   const mounted = useRef(true);
 
   const reloadDb = useCallback(async () => {
-    const [jobs, statuses] = await Promise.all([db.jobs.toArray(), db.statuses.toArray()]);
-    if (mounted.current) setData((d) => ({ ...d, jobs, statuses, loaded: true, now: Date.now() }));
+    const [jobs, statuses, attempts] = await Promise.all([db.jobs.toArray(), db.statuses.toArray(), db.attempts.toArray()]);
+    if (mounted.current) setData((d) => ({ ...d, jobs, statuses, attempts, loaded: true, now: Date.now() }));
   }, [db]);
 
   const reloadStore = useCallback(async () => {
-    const [health, safety, settings, filters, pendingApply, hiddenTitleWords] = await Promise.all([
+    const [health, safety, settings, filters, pendingApply, hiddenTitleWords, agent, agentState] = await Promise.all([
       load('health'), load('safety'), load('settings'), load('filters'), load('pendingApply'), load('hiddenTitleWords'),
+      load('agent'), load('agentState'),
     ]);
     if (mounted.current) {
-      setData((d) => ({ ...d, health, safety, settings, filters: normalizeFilters(filters), pendingApply, hiddenTitleWords }));
+      setData((d) => ({
+        ...d, health, safety, settings, filters: normalizeFilters(filters), pendingApply, hiddenTitleWords,
+        agent: normalizeAgentConfig(agent), agentState,
+      }));
     }
   }, []);
 

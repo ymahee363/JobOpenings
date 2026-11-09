@@ -1,4 +1,4 @@
-# PRD: Naukri Fast-Apply Job Board
+cl# PRD: Naukri Fast-Apply Job Board
 
 | | |
 | --- | --- |
@@ -7,7 +7,7 @@
 | **Last updated** | 2026-10-21 |
 | **Source page** | [Naukri homepage](https://www.naukri.com/mnjuser/homepage) (logged in) |
 
-## 1. Summary
+## 1. Summaryc
 
 I will build a personal job board web app that collects every opening on my logged-in Naukri homepage, sorts them by posting date (newest first), and splits them into two tabs: **Easy Apply** (apply inside Naukri) and **Company Site** (apply on an external careers page). Success means applying to fresh, relevant jobs within hours of posting, at twice my current weekly volume, with no risk to my Naukri account.
 
@@ -35,7 +35,7 @@ Why it matters: early applicants get seen first on Naukri, so hours of delay red
 
 | Non-goal | Why |
 | --- | --- |
-| Auto-apply or bulk apply | Account risk, and a bad fit ruins applications. Every apply stays a human click |
+| Auto-apply or bulk apply | Account risk, and a bad fit ruins applications. Every apply stays a human click. **Exception (2026-10-27):** the optional iimjobs agent in [PRD-auto-apply.md](PRD-auto-apply.md), off by default |
 | Filling external company forms | Every career site is different. Too costly for the payoff |
 | Sources beyond homepage feeds, the one saved Naukri search, the Indeed homepage, Instahyre saved searches and Wellfound jobs (other searches, alerts, other job sites) | Keeps v1 small. Planned for v2 (milestone M5) |
 | Multi-user, hosted or mobile app | Personal tool. Hosting would mean storing my Naukri session on a server |

@@ -3,3 +3,19 @@ dist/
 *.zip
 .idea/
 __pycache__/
+
+# AI backend: secrets and local Python state
+backend/.env
+backend/.venv/
+backend/**/__pycache__/
+backend/*.log
+
+# Your personal AI apply data (profile, remembered answers, resume): bundled by the build, never committed
+seed/
+
+# QA page snapshots (third-party pages, local only)
+qa/snapshots/
+qa/harness.js
+
+# Your career-site account for the account agent (ACCOUNT_EMAIL / ACCOUNT_PASSWORD): never committed
+.env

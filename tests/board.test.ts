@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   normalizeFilters, SITES, toggleSite, type Filters,
   appliedCsv, buildRows, cleanHideWord, computeStats, countHiddenByTitle, DEFAULT_FILTERS, DEFAULT_HIDDEN_TITLE_WORDS,
-  matchesFilters, rowsForTab, titleHasHiddenWord, type BoardRow,
-} from '../src/shared/board';
+  atsCounts, extraDetailsFrom, matchesFilters, rowsForTab, titleHasHiddenWord, type BoardRow, isProductTitle } from '../src/shared/board';
+import type { Attempt } from '../src/shared/auto-apply/config';
 import type { Job, JobStatus, Site } from '../src/shared/types';
 
 const NOW = 1792500000000;
@@ -186,6 +186,32 @@ describe('hiding jobs by title words', () => {
     expect(cleanHideWord('x'.repeat(100))).toHaveLength(60);
   });
 
+  it('puts a job you dragged to another tab only in that tab', () => {
+    const rows = buildRows([
+      job({ jobId: 'a', title: 'Product Manager', applyType: 'easy_apply' }),
+      job({ jobId: 'b', title: 'Product Owner', applyType: 'company_site' }),
+      job({ jobId: 'c', title: 'Product Lead', applyType: 'easy_apply' }),
+    ], [], null, NOW, new Map([['c', 'asked for a cover letter']]), { a: 'company_site', c: 'easy_apply' });
+    const ids = (t: Parameters<typeof rowsForTab>[1]) => rowsForTab(rows, t, DEFAULT_FILTERS, NOW).map((r) => r.jobId).sort();
+    expect(ids('easy_apply')).toEqual(['c']);
+    expect(ids('company_site')).toEqual(['a', 'b']);
+    expect(ids('extra_details')).toEqual([]);
+  });
+
+  it('lists only titles with "product", in any tab but Applied', () => {
+    const rows = buildRows([
+      job({ jobId: 'pm', title: 'Senior Product Manager' }),
+      job({ jobId: 'po', title: 'PRODUCT OWNER' }),
+      job({ jobId: 'hop', title: 'Head of Products' }),
+      job({ jobId: 'pgm', title: 'Program Manager' }),
+      job({ jobId: 'pgm-applied', title: 'Program Manager' }),
+    ], [{ jobId: 'pgm-applied', status: 'applied', statusAt: NOW }], null, NOW);
+    expect(rowsForTab(rows, 'easy_apply', DEFAULT_FILTERS, NOW).map((r) => r.jobId).sort()).toEqual(['hop', 'pm', 'po']);
+    expect(rowsForTab(rows, 'applied', DEFAULT_FILTERS, NOW).map((r) => r.jobId)).toEqual(['pgm-applied']);
+    expect(isProductTitle('Product Manager')).toBe(true);
+    expect(isProductTitle('Business Analyst')).toBe(false);
+  });
+
   it('leaves hidden jobs out of every tab except Applied, and counts them', () => {
     const rows = buildRows([
       job({ jobId: 'pm', title: 'Product Manager' }),
@@ -200,9 +226,79 @@ describe('hiding jobs by title words', () => {
     expect(rowsForTab(rows, 'easy_apply', DEFAULT_FILTERS, NOW, words).map((r) => r.jobId)).toEqual(['pm']);
     expect(rowsForTab(rows, 'company_site', DEFAULT_FILTERS, NOW, words)).toEqual([]);
     expect(rowsForTab(rows, 'applied', DEFAULT_FILTERS, NOW, words).map((r) => r.jobId)).toEqual(['eng-applied']);
-    // Removing the words brings them back.
-    expect(rowsForTab(rows, 'easy_apply', DEFAULT_FILTERS, NOW, []).map((r) => r.jobId).sort()).toEqual(['eng', 'pm']);
+    // Removing the words does not bring back a title without "product": only product roles are listed.
+    expect(rowsForTab(rows, 'easy_apply', DEFAULT_FILTERS, NOW, []).map((r) => r.jobId).sort()).toEqual(['pm']);
     // Applied and dismissed jobs are not counted as hidden.
     expect(countHiddenByTitle(rows, words)).toBe(2);
+  });
+});
+
+describe('Extra Details tab', () => {
+  const attempt = (jobId: string, outcome: Attempt['outcome'], startedAt: number, reason = ''): Attempt => ({
+    jobId, title: 'PM', company: 'Acme', startedAt, finishedAt: startedAt, mode: 'live', matched: [], answers: [], questions: [],
+    clicked: true, outcome, reason,
+  });
+
+  it('moves jobs the site asked details for out of Easy Apply, with the reason', () => {
+    const extra = extraDetailsFrom([
+      attempt('a', 'needs_me', NOW - 1000, 'iimjobs asked for details (Notice period)'),
+      attempt('b', 'needs_me', NOW - 5000, 'asked'), attempt('b', 'applied', NOW - 1000),
+      attempt('c', 'failed', NOW - 1000),
+    ]);
+    expect([...extra.keys()]).toEqual(['a']);
+    const rows = buildRows([job({ jobId: 'a' }), job({ jobId: 'b' }), job({ jobId: 'c' })], [], null, NOW, extra);
+    expect(rowsForTab(rows, 'extra_details', DEFAULT_FILTERS, NOW).map((r) => [r.jobId, r.extraDetails]))
+      .toEqual([['a', 'iimjobs asked for details (Notice period)']]);
+    expect(rowsForTab(rows, 'easy_apply', DEFAULT_FILTERS, NOW).map((r) => r.jobId).sort()).toEqual(['b', 'c']);
+  });
+
+  it('leaves the tab once you apply or dismiss', () => {
+    const extra = new Map([['a', 'asked']]);
+    const statuses: JobStatus[] = [{ jobId: 'a', status: 'applied', statusAt: NOW }];
+    const rows = buildRows([job({ jobId: 'a' })], statuses, null, NOW, extra);
+    expect(rowsForTab(rows, 'extra_details', DEFAULT_FILTERS, NOW)).toEqual([]);
+    expect(rowsForTab(rows, 'applied', DEFAULT_FILTERS, NOW).map((r) => r.jobId)).toEqual(['a']);
+  });
+});
+
+describe('extra details and ATS', () => {
+  const now = Date.now();
+  const at = (jobId: string, outcome: Attempt['outcome'], clicked: boolean) =>
+    ({ jobId, outcome, clicked, startedAt: now, questions: [], reason: 'x' }) as unknown as Attempt;
+  const jobs = [
+    job({ jobId: '1', title: 'Product Manager', applyType: 'company_site', externalUrl: 'https://boards.greenhouse.io/acme/jobs/1', postedAt: now }),
+    job({ jobId: '2', title: 'Product Manager', applyType: 'easy_apply', postedAt: now }),
+    job({ jobId: '3', title: 'Product Manager', applyType: 'easy_apply', postedAt: now }),
+  ];
+  const extra = extraDetailsFrom([at('1', 'needs_me', false), at('2', 'failed', true), at('3', 'failed', false)]);
+  const rows = buildRows(jobs, [], null, now, extra);
+  const ids = (tab: Parameters<typeof rowsForTab>[1]) => rowsForTab(rows, tab, DEFAULT_FILTERS, now).map((r) => r.jobId);
+
+  it('puts jobs auto-apply could not apply to only in Extra Details', () => {
+    expect(ids('extra_details').sort()).toEqual(['1', '3']);
+    expect(ids('company_site')).toEqual([]);
+    expect(ids('easy_apply')).toEqual(['2']);
+  });
+
+  it('tags and searches by ATS', () => {
+    expect(rows[0]!.ats).toBe('greenhouse');
+    const f = { ...DEFAULT_FILTERS, keywordsInclude: 'greenhouse' };
+    expect(rowsForTab(buildRows(jobs, [], null, now), 'company_site', f, now).map((r) => r.jobId)).toEqual(['1']);
+  });
+});
+
+describe('ATS chips', () => {
+  const now = Date.now();
+  const cs = (jobId: string, host: string) => job({ jobId, title: 'Product Manager', applyType: 'company_site', externalUrl: `https://${host}/jobs/1`, postedAt: now });
+  const rows = buildRows([cs('1', 'acme.keka.com'), cs('2', 'beta.keka.com'), cs('3', 'boards.greenhouse.io'), cs('4', 'acme.com')], [], null, now);
+
+  it('counts openings per ATS, most first', () => {
+    expect(atsCounts(rows, 'company_site', DEFAULT_FILTERS, now)).toEqual([{ ats: 'keka', count: 2 }, { ats: 'greenhouse', count: 1 }]);
+  });
+
+  it('filters by the chosen ATS and keeps counts for the others', () => {
+    const f = { ...DEFAULT_FILTERS, ats: ['greenhouse' as const] };
+    expect(rowsForTab(rows, 'company_site', f, now).map((r) => r.jobId)).toEqual(['3']);
+    expect(atsCounts(rows, 'company_site', f, now)).toHaveLength(2);
   });
 });

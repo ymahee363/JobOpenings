@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Validation errors test form</title>
+<style>
+  body { font: 14px/1.4 system-ui, sans-serif; max-width: 720px; margin: 24px auto; padding: 0 16px; color: #1d1d1f; background: #fff; }
+  .form-group { margin: 14px 0; } label { display: block; font-weight: 600; margin-bottom: 4px; }
+  input, textarea { padding: 6px; min-width: 300px; }
+  .is-invalid, [aria-invalid=true] { border: 2px solid #c00; }
+  .invalid-feedback, .error-message, .MuiFormHelperText-root.Mui-error, #banner { color: #c00; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<h1>Product Manager application</h1>
+<div id="banner" role="alert" hidden>Please correct the errors below.</div>
+<div id="app">
+  <!-- Bootstrap: .invalid-feedback next to the input -->
+  <div class="form-group"><label for="name">Full name *</label><input id="name" type="text"><div class="invalid-feedback" hidden></div></div>
+  <!-- aria-describedby -->
+  <div class="form-group"><label for="phone">Mobile number *</label><input id="phone" type="text" aria-describedby="phone-err"><span id="phone-err" class="error-message" hidden></span></div>
+  <!-- MUI-style helper text -->
+  <div class="MuiFormControl-root"><label for="summary">Professional summary *</label><textarea id="summary" rows="3"></textarea><p class="MuiFormHelperText-root Mui-error" hidden></p></div>
+  <!-- aria-errormessage -->
+  <div class="form-field"><label for="role-yrs">Years in current role *</label><input id="role-yrs" type="text" aria-errormessage="role-yrs-msg"><div id="role-yrs-msg" class="field-error" hidden></div></div>
+  <!-- A date box that wants DD-MM-YYYY (dashes), said only in the error -->
+  <div class="form-group"><label for="avail">Available from *</label><input id="avail" type="text"><div class="invalid-feedback" hidden></div></div>
+  <!-- Too short: needs judgement -->
+  <div class="question"><label for="why">Why this role? *</label><textarea id="why" rows="3"></textarea><div class="error" hidden></div></div>
+  <button type="button" id="submit">Submit application</button>
+</div>
+<script>
+(function () {
+  function show(input, msg) {
+    var box = input.parentElement.querySelector('.invalid-feedback, .error-message, .Mui-error, .field-error, .error');
+    if (box) { box.textContent = msg; box.hidden = !msg; }
+    if (msg) input.setAttribute('aria-invalid', 'true'); else input.removeAttribute('aria-invalid');
+    input.classList.toggle('is-invalid', !!msg);
+  }
+  var rules = {
+    name: function (v) { return v.trim() ? '' : 'Full name is required.'; },
+    phone: function (v) { return /^\d{10}$/.test(v) ? '' : 'Please enter a valid 10-digit mobile number (digits only).'; },
+    summary: function (v) { return v.length <= 100 ? '' : 'Summary must be at most 100 characters.'; },
+    'role-yrs': function (v) { var n = Number(v); return v !== '' && n >= 0 && n <= 30 ? '' : 'Value must be between 0 and 30.'; },
+    avail: function (v) { var m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(v); return m && Number(m[2]) <= 12 && Number(m[1]) <= 31 ? '' : 'Invalid date. Please use the format DD-MM-YYYY.'; },
+    why: function (v) { return v.trim().length >= 60 ? '' : 'Please write at least 60 characters.'; }
+  };
+  window.__submits = 0;
+  document.getElementById('submit').addEventListener('click', function () {
+    window.__submits += 1;
+    (window.__seen = window.__seen || []).push(document.getElementById('avail').value);
+    var bad = 0;
+    Object.keys(rules).forEach(function (id) {
+      var el = document.getElementById(id);
+      var msg = rules[id](el.value);
+      show(el, msg);
+      if (msg) bad += 1;
+    });
+    document.getElementById('banner').hidden = !bad;
+    if (!bad) document.getElementById('app').innerHTML = '<h2>Thank you for applying! Your application has been submitted.</h2>';
+  });
+})();
+</script>
+</body>
+</html>

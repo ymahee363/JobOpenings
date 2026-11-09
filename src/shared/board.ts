@@ -1,5 +1,7 @@
 /** Pure board logic: building rows, filtering, sorting and stats. */
 import type { ApplyType, Job, JobStatus, Site, Status } from './types';
+import type { Attempt } from './auto-apply/config';
+import { detectAts, type Ats } from './ats/detect';
 
 const DAY = 86_400_000;
 
@@ -17,11 +19,26 @@ export interface BoardRow extends Job {
   isNew: boolean;
   maybeClosed: boolean;
   appliedBefore: boolean;
+  /** Set on applied jobs the auto-apply agent applied to. */
+  appliedBy: JobStatus['appliedBy'];
+  /** Why the site wanted more than one click (a form or a confirmation), from the agent; null otherwise. */
+  extraDetails: string | null;
+  /** The tab you dragged this job to; null keeps the tab its apply type gives it. */
+  tabOverride: MovableTab | null;
+  /** The ATS of the company career page (company-site jobs with a known link); null otherwise. */
+  ats: Ats | null;
 }
+
+/** Tabs a job can be dragged to besides Applied (which marks it applied instead). */
+export type MovableTab = Exclude<BoardTab, 'applied'>;
+/** Where you dragged jobs, by job ID. */
+export type TabOverrides = Record<string, MovableTab>;
 
 export interface Filters {
   /** Sites to show; empty shows every site. */
   sites: Site[];
+  /** ATS platforms to show (company-site jobs); empty shows every job. Missing in filters saved before ATS chips. */
+  ats?: Ats[];
   postedWithinDays: number | null;
   expYears: number | null;
   location: string;
@@ -34,6 +51,7 @@ export interface Filters {
 
 export const DEFAULT_FILTERS: Filters = {
   sites: [],
+  ats: [],
   postedWithinDays: 7,
   expYears: null,
   location: '',
@@ -44,7 +62,14 @@ export const DEFAULT_FILTERS: Filters = {
   companyBlocklist: '',
 };
 
-export function buildRows(jobs: Job[], statuses: JobStatus[], lastVisitAt: number | null, now: number): BoardRow[] {
+/**
+ * `extraDetails` maps job IDs to why the site asked for more than one click; those jobs move from Easy Apply to the
+ * Extra Details tab.
+ */
+export function buildRows(
+  jobs: Job[], statuses: JobStatus[], lastVisitAt: number | null, now: number, extraDetails: Map<string, string> = new Map(),
+  overrides: TabOverrides = {},
+): BoardRow[] {
   const byId = new Map(statuses.map((s) => [s.jobId, s]));
   const appliedKeys = new Map<string, string>();
   for (const j of jobs) {
@@ -60,8 +85,18 @@ export function buildRows(jobs: Job[], statuses: JobStatus[], lastVisitAt: numbe
       isNew: lastVisitAt !== null && j.firstSeenAt > lastVisitAt,
       maybeClosed: now - j.lastSeenAt > MAYBE_CLOSED_AFTER_MS,
       appliedBefore: appliedId !== undefined && appliedId !== j.jobId,
+      appliedBy: s?.appliedBy,
+      extraDetails: extraDetails.get(j.jobId) ?? null,
+      tabOverride: overrides[j.jobId] ?? null,
+      ats: atsOf(j),
     };
   });
+}
+
+/** ATS of a job's company page; null when there is no company link or it is not a known ATS. */
+export function atsOf(j: Pick<Job, 'externalUrl'>): Ats | null {
+  const a = detectAts(j.externalUrl);
+  return a === 'generic' ? null : a;
 }
 
 /** Newest posting first; ties go to the job seen most recently for the first time. */
@@ -75,6 +110,7 @@ function terms(csv: string): string[] {
 
 export function matchesFilters(row: BoardRow, f: Filters, now: number): boolean {
   if (f.sites.length && !f.sites.includes(row.site)) return false;
+  if (f.ats?.length && !(row.ats && f.ats.includes(row.ats))) return false;
   if (f.postedWithinDays !== null && now - row.postedAt > f.postedWithinDays * DAY) return false;
   if (f.expYears !== null) {
     if (row.expMin !== null && f.expYears < row.expMin) return false;
@@ -89,7 +125,7 @@ export function matchesFilters(row: BoardRow, f: Filters, now: number): boolean 
     const top = row.salaryMaxLpa ?? row.salaryMinLpa;
     if (top === null ? !f.includeUndisclosedSalary : top < f.salaryFloorLpa) return false;
   }
-  const haystack = `${row.title} ${row.company} ${row.skills.join(' ')}`.toLowerCase();
+  const haystack = `${row.title} ${row.company} ${row.skills.join(' ')} ${row.ats ?? ''}`.toLowerCase();
   const include = terms(f.keywordsInclude);
   if (include.length && !include.some((t) => haystack.includes(t))) return false;
   if (terms(f.keywordsExclude).some((t) => haystack.includes(t))) return false;
@@ -98,7 +134,8 @@ export function matchesFilters(row: BoardRow, f: Filters, now: number): boolean 
   return true;
 }
 
-export type BoardTab = ApplyType | 'applied';
+/** `extra_details`: jobs where the site asked for more than one click; finish them yourself. */
+export type BoardTab = ApplyType | 'extra_details' | 'applied';
 
 /** Words that hide a job when its title contains them; editable in Settings. */
 export const DEFAULT_HIDDEN_TITLE_WORDS = ['Designer', 'Engineer'];
@@ -124,6 +161,21 @@ export function titleHasHiddenWord(title: string, words: string[]): boolean {
   });
 }
 
+/** Only product roles are kept: a title must contain "product" (Product Manager, Product Owner, Head of Product…). */
+export function isProductTitle(title: string): boolean {
+  return /product/i.test(title);
+}
+
+/**
+ * Is an open job in this tab? A job you dragged somewhere is only there; a job auto-apply could not apply to is
+ * only in Extra Details; otherwise its apply type decides.
+ */
+function inTab(r: BoardRow, tab: MovableTab): boolean {
+  if (r.tabOverride) return r.tabOverride === tab;
+  if (r.extraDetails !== null) return tab === 'extra_details';
+  return tab !== 'extra_details' && r.applyType === tab;
+}
+
 /**
  * Rows for one tab: applied jobs live in their own tab, dismissed jobs are hidden everywhere, and jobs
  * whose title has a hidden word are left out of every tab except Applied.
@@ -134,10 +186,19 @@ export function rowsForTab(rows: BoardRow[], tab: BoardTab, f: Filters, now: num
       .sort((a, b) => (b.statusAt ?? 0) - (a.statusAt ?? 0));
   }
   return rows
-    .filter((r) => r.applyType === tab && r.status !== 'applied' && r.status !== 'dismissed')
+    .filter((r) => r.status !== 'applied' && r.status !== 'dismissed')
+    .filter((r) => isProductTitle(r.title))
+    .filter((r) => inTab(r, tab))
     .filter((r) => !titleHasHiddenWord(r.title, hideWords))
     .filter((r) => matchesFilters(r, f, now))
     .sort(compareNewestFirst);
+}
+
+/** ATS platforms among a tab's jobs (every filter but the ATS one), most openings first. */
+export function atsCounts(rows: BoardRow[], tab: BoardTab, f: Filters, now: number, hideWords: string[] = []): Array<{ ats: Ats; count: number }> {
+  const counts = new Map<Ats, number>();
+  for (const r of rowsForTab(rows, tab, { ...f, ats: [] }, now, hideWords)) if (r.ats) counts.set(r.ats, (counts.get(r.ats) ?? 0) + 1);
+  return [...counts].map(([ats, count]) => ({ ats, count })).sort((a, b) => b.count - a.count || a.ats.localeCompare(b.ats));
 }
 
 /** How many open jobs the hidden words currently hide. */
@@ -219,4 +280,38 @@ export function normalizeFilters(saved: Filters & { site?: unknown }): Filters {
 export function toggleSite(sites: Site[], site: Site, on: boolean): Site[] {
   const next = SITES.filter((s) => (s === site ? on : sites.includes(s)));
   return next.length === SITES.length ? [] : next;
+}
+
+/** The agent's audit trail as CSV (PRD-auto-apply AR-11). */
+export function attemptsCsv(attempts: Attempt[]): string {
+  const header = ['Started', 'Finished', 'Mode', 'Outcome', 'Title', 'Company', 'Job ID', 'Matched', 'Answers', 'Questions', 'Reason'];
+  const lines = [...attempts].sort((a, b) => b.startedAt - a.startedAt).map((a) => [
+    new Date(a.startedAt).toISOString(), a.finishedAt ? new Date(a.finishedAt).toISOString() : '', a.mode, a.outcome,
+    a.title, a.company, a.jobId, a.matched.join('; '), a.answers.map((x) => `${x.question}: ${x.answer}`).join('; '),
+    a.questions.join('; '), a.reason,
+  ].map(csvCell).join(','));
+  return [header.map(csvCell).join(','), ...lines].join('\r\n');
+}
+
+/**
+ * Jobs auto-apply tried and could not apply to, with the reason: each job's latest attempt, when the site asked for
+ * details ("needs me") or the attempt failed before Apply was pressed. Jobs where Apply was pressed but not confirmed,
+ * or AI apply filled the form for you to submit, stay in their own tab. A later attempt (applied, say) takes the job out.
+ */
+export function extraDetailsFrom(attempts: Attempt[]): Map<string, string> {
+  const latest = new Map<string, Attempt>();
+  for (const a of attempts) {
+    const prev = latest.get(a.jobId);
+    if (!prev || a.startedAt > prev.startedAt) latest.set(a.jobId, a);
+  }
+  const out = new Map<string, string>();
+  for (const [jobId, a] of latest) {
+    if (a.outcome === 'failed' && !a.clicked) {
+      out.set(jobId, a.reason || 'auto-apply could not apply');
+      continue;
+    }
+    if (a.outcome !== 'needs_me' || a.questions.some((q) => /outside your Instahyre matches/.test(q))) continue;
+    out.set(jobId, a.reason || 'the site asked for details');
+  }
+  return out;
 }

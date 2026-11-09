@@ -1,5 +1,19 @@
 import { getDb } from '../db/db';
-import { log, markAppliedFromSite, purge, setStatus, upsertJobs } from '../db/repo';
+import {
+  addAttempt, ATTEMPT_RETENTION_MS, finishAttempt, listAttempts, log, markAppliedFromSite, purge, setStatus, upsertJobs,
+} from '../db/repo';
+import { runAiApply, type FlowDeps, type FlowMode } from '../shared/ai-apply/flow';
+import { backendClient, backendHealth } from '../shared/ai-apply/llm';
+import { normalizeProfile } from '../shared/ai-apply/profile';
+import { buildWorkdayPlan } from '../shared/ats/workday-plan';
+import { seedPatch, type AiSeed } from '../shared/ai-apply/seed';
+import { normalizeLabel, rememberAnswers } from '../shared/ai-apply/memory';
+import { isProductTitle } from '../shared/board';
+import { applyEverywhere, normalizeAgentConfig } from '../shared/auto-apply/config';
+import { AGENT_SITES, confirmedJobIds, jobPageOf, SITE_PAGES, type AgentSite } from '../shared/auto-apply/job-page';
+import { buildQueue, explainEmptyQueue } from '../shared/auto-apply/match';
+import { cappedSites, hoursLabel, inAgentHours, planNextRun, staleAttempts, startOfDay, summarize } from '../shared/auto-apply/pacing';
+import { runOnce, type ApplyReport, type ApplyRequest, type NoRunReason, type RunDeps } from '../shared/auto-apply/runner';
 import { BoardMessage, CollectorMessage, DB_CHANGED, type RefreshResponse } from '../shared/messages';
 import { parseCapture, type CaptureResult } from '../shared/parse';
 import { parseIndeedCapture } from '../shared/parse-indeed';
@@ -86,6 +100,8 @@ async function scheduleIndeedDaily(reroll: boolean): Promise<void> {
 async function schedule(): Promise<void> {
   await scheduleNaukri();
   await scheduleIndeedDaily(false);
+  await recoverAttempts();
+  await scheduleAgent(false);
   const purgeAlarm = await chrome.alarms.get(ALARM_PURGE);
   if (!purgeAlarm) await chrome.alarms.create(ALARM_PURGE, { periodInMinutes: 24 * 60, delayInMinutes: 1 });
 }
@@ -123,7 +139,9 @@ async function handleCapture(msg: Capture): Promise<number> {
   const result = parseFor(msg, now);
   if (result.jobs.length === 0 && result.rejected === 0) return 0;
 
-  const { added } = await upsertJobs(db, result.jobs, now);
+  // Only product roles go on the board (the title must say "product").
+  const productJobs = result.jobs.filter((j) => isProductTitle(j.title));
+  const { added } = await upsertJobs(db, productJobs, now);
   if (result.appliedJobIds?.length) {
     const marked = await markAppliedFromSite(db, result.appliedJobIds, now);
     if (marked) await log(db, 'info', `${SITE_NAME[msg.site]} shows ${marked} job(s) as already applied`);
@@ -138,8 +156,11 @@ async function handleCapture(msg: Capture): Promise<number> {
   if (result.rejected > 0) {
     await log(db, 'warn', `${result.rejected} ${SITE_NAME[msg.site]} job(s) failed validation (${msg.source}, feed ${msg.feed ?? 'auto'}): ${result.firstError ?? ''}`);
   }
-  await log(db, 'info', `Captured ${result.jobs.length} ${SITE_NAME[msg.site]} jobs from ${msg.source} (${msg.feed ?? 'network'}), ${added.length} new`);
+  const skipped = result.jobs.length - productJobs.length;
+  await log(db, 'info', `Captured ${productJobs.length} ${SITE_NAME[msg.site]} jobs from ${msg.source} (${msg.feed ?? 'network'}), ${added.length} new${skipped ? `, ${skipped} without "product" in the title skipped` : ''}`);
   if (added.length) await maybeNotify(added.length);
+  // AR-15: new iimjobs jobs make sure an agent run is coming (an existing one is kept).
+  if (added.length && msg.site === 'iimjobs') await scheduleAgent(false);
   broadcastChanged();
   return added.length;
 }
@@ -179,10 +200,10 @@ const pendingRefresh = new Map<number, PendingRefresh>();
  */
 type Trigger = 'manual' | 'scheduled' | 'daily' | 'board';
 const SITES_FOR: Record<Trigger, AppSite[]> = {
-  manual: ['naukri', 'indeed', 'instahyre', 'wellfound', 'cutshort', 'foundit', 'iimjobs'],
+  manual: ['naukri', 'indeed', 'instahyre', 'wellfound', 'cutshort', 'foundit', 'iimjobs', 'linkedin'],
   scheduled: ['naukri'],
-  daily: ['indeed', 'instahyre', 'wellfound', 'cutshort', 'foundit', 'iimjobs'],
-  board: ['indeed', 'instahyre', 'wellfound', 'cutshort', 'foundit', 'iimjobs'],
+  daily: ['indeed', 'instahyre', 'wellfound', 'cutshort', 'foundit', 'iimjobs', 'linkedin'],
+  board: ['indeed', 'instahyre', 'wellfound', 'cutshort', 'foundit', 'iimjobs', 'linkedin'],
 };
 
 /** Refreshes run one at a time; a new one waits for the current one to finish. */
@@ -216,24 +237,31 @@ async function isHalted(): Promise<boolean> {
  * random extra (a different one each page), then close it. A halt closes it at once.
  */
 async function loadAndCapture(url: string, source: Source): Promise<{ result: LoadOutcome; added: number }> {
-  // Belt and braces: sources never accept LinkedIn, but make sure the app can never open it.
-  if (/(^|\.)linkedin\.com$/i.test(new URL(url).hostname)) return { result: 'timeout', added: 0 };
+  // The agent and a refresh never have pages of the same site open at once: wait for an agent attempt to finish.
+  const refreshSite = siteOfUrl(new URL(url));
+  const agentSite = AGENT_SITES.find((s) => s === refreshSite) ?? null;
+  if (agentSite) await agentIdle();
   const openedAt = Date.now();
   const stayMs = dwellMs(Math.random);
   const tab = await chrome.tabs.create({ url, active: false });
   const tabId = tab.id;
   if (tabId === undefined) return { result: 'timeout', added: 0 };
+  if (agentSite) refreshSiteTabs[agentSite] += 1;
 
-  const entry: PendingRefresh = { resolve: () => undefined, added: 0, inflight: [], savedSearch: source.savedSearch };
-  const result = await new Promise<LoadOutcome>((resolve) => {
-    entry.resolve = resolve;
-    pendingRefresh.set(tabId, entry);
-    setTimeout(() => resolve('timeout'), REFRESH_TIMEOUT_MS);
-  });
-  pendingRefresh.delete(tabId);
-  if (result === 'done' && !(await isHalted())) await delay(openedAt + stayMs - Date.now());
-  await chrome.tabs.remove(tabId).catch(() => undefined);
-  return { result, added: entry.added };
+  try {
+    const entry: PendingRefresh = { resolve: () => undefined, added: 0, inflight: [], savedSearch: source.savedSearch };
+    const result = await new Promise<LoadOutcome>((resolve) => {
+      entry.resolve = resolve;
+      pendingRefresh.set(tabId, entry);
+      setTimeout(() => resolve('timeout'), REFRESH_TIMEOUT_MS);
+    });
+    pendingRefresh.delete(tabId);
+    if (result === 'done' && !(await isHalted())) await delay(openedAt + stayMs - Date.now());
+    return { result, added: entry.added };
+  } finally {
+    if (agentSite) refreshSiteTabs[agentSite] -= 1;
+    await chrome.tabs.remove(tabId).catch(() => undefined);
+  }
 }
 
 function refresh(trigger: Trigger): Promise<RefreshResponse> {
@@ -288,6 +316,10 @@ async function doRefresh(trigger: Trigger): Promise<RefreshResponse> {
 
   const loaded = await effectiveSources(await load('sources'));
   for (const e of loaded.errors) await log(db, 'warn', `Sources: ${e}`);
+  const unreadable = loaded.sources.filter((src) => siteOfUrl(new URL(src.url)) === null);
+  if (trigger === 'manual' && unreadable.length) {
+    await log(db, 'info', `Sources: ${unreadable.length} link(s) on sites refresh cannot read yet were skipped`);
+  }
   const sources = loaded.sources.filter((src) => allowed.includes(siteOfUrl(new URL(src.url))!));
   if (!sources.length) {
     const names = allowed.map((x) => SITE_NAME[x]).join(' or ');
@@ -363,8 +395,11 @@ async function haltAll(site: Site): Promise<void> {
   await update('safety', (s) => (s.haltedAt !== null ? s : halt(s, Date.now(), reason)));
   await chrome.alarms.clear(ALARM_REFRESH);
   await chrome.alarms.clear(ALARM_INDEED_DAILY);
+  await chrome.alarms.clear(ALARM_AGENT);
   await update('health', (h) => ({ ...h, nextAutoRefreshAt: null, nextIndeedRefreshAt: null }));
+  await update('agentState', (st) => ({ ...st, nextRunAt: null }));
   for (const p of pendingRefresh.values()) p.resolve('captcha');
+  agentRun?.resolve(agentFail('captcha', reason));
   wakeOnHalt();
   if (already) return;
   await log(db, 'error', `${reason}; all app refreshes stopped until you press Resume`);
@@ -372,10 +407,643 @@ async function haltAll(site: Site): Promise<void> {
     type: 'basic',
     iconUrl: chrome.runtime.getURL('icon-128.png'),
     title: `${SITE_NAME[site]} showed a captcha`,
-    message: 'Job board refreshes are stopped. Solve the captcha on the site if asked, then press Resume on the board.',
+    message: 'Job board refreshes and auto-apply are stopped. Solve the captcha on the site if asked, then press Resume on the board.',
     priority: 2,
   });
   broadcastChanged();
+}
+
+// ---------- auto-apply agent (PRD-auto-apply) ----------
+
+const ALARM_AGENT = 'auto-apply';
+const ALARM_AGENT_SUMMARY = 'auto-apply-summary';
+const AGENT_PAGE_LOAD_MS = 30_000;
+/** The applier needs up to ~20 s to find the button and ~25 s per dialog step; this bounds a stuck page. */
+const AGENT_REPORT_MS = 150_000;
+const SUMMARY_HOUR = 21;
+/** Checks that the agent still has its next run set (a sleep or a stopped worker can lose it) and keeps the laptop awake in working hours. */
+const ALARM_AGENT_WATCHDOG = 'auto-apply-watchdog';
+const WATCHDOG_MINUTES = 5;
+/** A run still busy after this long is stuck (it hung across a sleep): the watchdog lets the next one start. */
+const AGENT_STUCK_MS = 20 * 60_000;
+
+/** The one job page the agent has open. Reports are accepted only from this tab, with this token. */
+interface AgentRun {
+  tabId: number;
+  token: string;
+  /** `iimjobs-<id>` of the job being applied to, to match iimjobs' confirmation page. */
+  jobId: string;
+  /** The applier has been asked to run; from now on the page leaving the job means Apply was pressed. */
+  sent: boolean;
+  /** The applier said it is pressing a button: a reload, a timeout or leaving the page now needs a check. */
+  clicked: boolean;
+  resolve: (r: ApplyReport) => void;
+}
+let agentRun: AgentRun | null = null;
+
+const loadAgent = async () => normalizeAgentConfig(await load('agent'));
+
+function agentFail(result: ApplyReport['result'], reason: string): ApplyReport {
+  return { result, clicked: false, reason, questions: [], answers: [], dialogs: [] };
+}
+
+function newToken(): string {
+  return [...crypto.getRandomValues(new Uint8Array(12))].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Set the next agent run: your gap after the last attempt on the next job's platform (shorter between different
+ * platforms, which take turns), in your working hours, under the daily cap.
+ * An existing alarm is kept unless `reroll` is set (after a run), so new captures do not keep moving it.
+ */
+async function scheduleAgent(reroll: boolean): Promise<void> {
+  const [config, safety, state] = await Promise.all([loadAgent(), load('safety'), load('agentState')]);
+  let when: number | null = null;
+  if (config.autoApply && safety.haltedAt === null && state.haltedAt === null) {
+    const existing = await chrome.alarms.get(ALARM_AGENT);
+    if (existing && !reroll) {
+      when = existing.scheduledTime;
+    } else {
+      const now = Date.now();
+      const [today, all] = await Promise.all([listAttempts(db, startOfDay(now)), agentDeps.listAttempts()]);
+      const queue = await agentDeps.queue(config, all);
+      when = planNextRun({
+        now, today, nextSite: queue[0]?.job.site ?? null, platforms: new Set(queue.map((q) => q.job.site)).size,
+        gapSeconds: config.gapSeconds, cap: Infinity, rand: Math.random, hours: config,
+        allCapped: config.sites.length > 0 && cappedSites(config.sites, config.dailyCap, all, now).length === config.sites.length,
+      });
+      // Out of AI quota: the next run is when the limit is back. A Chrome alarm also fires right after the laptop
+      // wakes if that time passed while it slept, and the watchdog re-plans a lost one.
+      if (config.aiApply && (state.limitUntil ?? 0) > when) when = state.limitUntil! + Math.floor(Math.random() * 60_000);
+      await chrome.alarms.create(ALARM_AGENT, { when });
+    }
+  } else {
+    await chrome.alarms.clear(ALARM_AGENT);
+  }
+  await update('agentState', (s) => ({ ...s, nextRunAt: when }));
+  await updateKeepAwake(config.keepAwake || (config.autoApply && safety.haltedAt === null && state.haltedAt === null && inAgentHours(Date.now(), config)));
+  if (config.autoApply || config.keepAwake) {
+    if (!(await chrome.alarms.get(ALARM_AGENT_WATCHDOG))) await chrome.alarms.create(ALARM_AGENT_WATCHDOG, { periodInMinutes: WATCHDOG_MINUTES, delayInMinutes: 1 });
+  } else {
+    await chrome.alarms.clear(ALARM_AGENT_WATCHDOG);
+  }
+
+  // AR-12: the 21:00 summary notification, when turned on.
+  if (config.dailySummary) {
+    if (!(await chrome.alarms.get(ALARM_AGENT_SUMMARY))) {
+      const at = new Date();
+      at.setHours(SUMMARY_HOUR, 0, 0, 0);
+      if (at.getTime() <= Date.now()) at.setDate(at.getDate() + 1);
+      await chrome.alarms.create(ALARM_AGENT_SUMMARY, { when: at.getTime(), periodInMinutes: 24 * 60 });
+    }
+  } else {
+    await chrome.alarms.clear(ALARM_AGENT_SUMMARY);
+  }
+}
+
+/** While auto-apply is on and in its working hours, stop Windows from sleeping when idle (the screen may still turn off). */
+async function updateKeepAwake(on: boolean): Promise<void> {
+  if (on) chrome.power.requestKeepAwake('system');
+  else chrome.power.releaseKeepAwake();
+}
+
+/**
+ * After the laptop wakes (Chrome fires the overdue watchdog alarm at once) or the worker restarts: set the next
+ * agent run again if it was lost, and free the agent if a run hung across the sleep.
+ */
+async function agentWatchdog(): Promise<void> {
+  if (agentBusy && agentBusySince !== null && Date.now() - agentBusySince > AGENT_STUCK_MS) {
+    await log(db, 'warn', 'Auto-apply: a run hung (likely across a sleep); starting again');
+    agentBusy = false;
+    agentBusySince = null;
+    agentChain = Promise.resolve();
+    agentRun?.resolve(agentFail('error', 'the run hung across a sleep'));
+  }
+  if (agentBusy) return;
+  const existing = await chrome.alarms.get(ALARM_AGENT);
+  // A missing alarm, or one long overdue, means the next run was lost: plan it again.
+  await scheduleAgent(!existing || existing.scheduledTime < Date.now() - WATCHDOG_MINUTES * 60_000);
+  broadcastChanged();
+}
+
+/** Attempts left pending by a closed browser or a stopped worker become failures, retried later (AR-14). */
+async function recoverAttempts(): Promise<void> {
+  const now = Date.now();
+  for (const a of staleAttempts(await listAttempts(db, now - 2 * 86_400_000), now)) {
+    await finishAttempt(db, a.id!, { finishedAt: now, outcome: 'failed', reason: 'interrupted (browser closed or extension restarted)' });
+    await log(db, 'warn', `Auto-apply attempt for ${a.title} at ${a.company} was interrupted; it will be re-checked later`);
+  }
+}
+
+async function waitForTabComplete(tabId: number, ms: number): Promise<boolean> {
+  const until = Date.now() + ms;
+  while (Date.now() < until) {
+    if ((await chrome.tabs.get(tabId)).status === 'complete') return true;
+    await delay(500);
+  }
+  return false;
+}
+
+/** The applier may still be loading when the page completes, so the request is resent until it answers. */
+async function sendApplyRun(tabId: number, msg: object): Promise<boolean> {
+  for (let i = 0; i < 8; i += 1) {
+    try {
+      await chrome.tabs.sendMessage(tabId, msg);
+      return true;
+    } catch {
+      await delay(1_000);
+    }
+  }
+  return false;
+}
+
+/**
+ * Open one job page in a background tab, run the site's one-click applier there (or AI apply, for a company site or a
+ * site without one), then close it. A tab where AI apply filled the form and waits for your Submit stays open.
+ */
+async function runInAgentTab(url: string, req: ApplyRequest): Promise<ApplyReport> {
+  const target = new URL(url);
+  const page = jobPageOf(target.href);
+  if (!page) {
+    if (!req.aiApply) return agentFail('error', `not a job page on a site auto-apply supports: ${url}`);
+    return runAiInNewTab(target.href, req.dryRun ? 'preview' : req.aiSubmit ? 'submit' : 'fill', { agent: true, active: false });
+  }
+  const tab = await chrome.tabs.create({ url: target.href, active: false });
+  const tabId = tab.id;
+  if (tabId === undefined) return agentFail('error', 'could not open a tab');
+  let keepOpen = false;
+  try {
+    if (!(await waitForTabComplete(tabId, AGENT_PAGE_LOAD_MS))) return agentFail('error', 'job page did not load');
+    const landed = new URL((await chrome.tabs.get(tabId)).url ?? target.href);
+    if (landed.origin !== SITE_PAGES[page.site].origin) return agentFail('error', `the page moved to ${landed.hostname}`);
+    if (/^\/(login|signup|accounts\/login|nlogin)\b/i.test(landed.pathname)) return agentFail('logged_out', '');
+    if (!jobPageOf(landed.href)) return agentFail('closed', 'redirected away from the job page');
+    if (await isHalted()) return agentFail('captcha', 'halted while loading');
+
+    const { jobId } = jobPageOf(landed.href)!;
+    const token = newToken();
+    const run: AgentRun = { tabId, token, jobId, sent: false, clicked: false, resolve: () => undefined };
+    const result = new Promise<ApplyReport>((resolve) => {
+      run.resolve = resolve;
+      agentRun = run;
+      setTimeout(() => resolve({ ...agentFail('error', 'no report from the job page'), clicked: run.clicked }), AGENT_REPORT_MS);
+    });
+    if (!(await sendApplyRun(tabId, { type: 'apply-run', token, dryRun: req.dryRun, fillForms: req.fillForms, answers: req.answers }))) {
+      return agentFail('not_found', 'the applier did not start on the job page');
+    }
+    run.sent = true;
+    let report = await result;
+    agentRun = null;
+    // The site asked for details, or applies on the company site: AI apply takes over (a dry run only says so).
+    if (req.aiApply && (report.result === 'needs_me' || report.result === 'external')) {
+      if (req.dryRun) return { ...report, result: 'can_apply', reason: `dry run: AI apply would take over (${report.reason || report.result})` };
+      await chrome.tabs.update(tabId, { url: target.href });
+      await delay(1_000);
+      if (!(await waitForTabComplete(tabId, AGENT_PAGE_LOAD_MS))) return { ...report, reason: `${report.reason}; the page did not reload for AI apply` };
+      const ai = await runAi(tabId, target.href, req.aiSubmit ? 'submit' : 'fill', { agent: true });
+      keepOpen = ai.keepOpen;
+      return { ...ai.report, clicked: ai.report.clicked || report.clicked, dialogs: report.dialogs };
+    }
+    // Anything but a clear result after pressing Apply: reload the job page and look for "Applied" there.
+    if (report.clicked && !['applied', 'captcha', 'logged_out', 'stopped'].includes(report.result) && !req.dryRun) {
+      report = await verifyApplied(tabId, target.href, report);
+    }
+    // Stay on the page a few seconds, as a person would, unless everything was just halted.
+    if (report.result !== 'captcha' && !(await isHalted())) await delay(pageGapMs(Math.random));
+    return report;
+  } finally {
+    agentRun = null;
+    if (!keepOpen) await chrome.tabs.remove(tabId).catch(() => undefined);
+  }
+}
+
+// ---------- AI apply (src/shared/ai-apply) ----------
+
+const FORM_ENGINE = 'form-engine.js';
+/** Host access AI apply needs to read and fill forms on any site; asked for from the Agent panel. */
+const ALL_SITES = { origins: ['https://*/*', 'http://*/*'] };
+/** Set by the board's Stop button: the running AI apply's next click is refused. */
+/** Bumped by Stop: every AI apply started before it stops at its next click (runs can be in parallel). */
+let aiStopGen = 0;
+/** Tabs opened by a tab AI apply is working in (an Apply button with target=_blank), newest last. */
+const aiChildTabs = new Map<number, number[]>();
+
+chrome.tabs.onCreated.addListener((tab) => {
+  if (tab.openerTabId !== undefined && tab.id !== undefined) aiChildTabs.get(tab.openerTabId)?.push(tab.id);
+});
+
+// ---------- real keystrokes (chrome.debugger) ----------
+
+/** Tabs the debugger is attached to for typing. */
+const debuggerTabs = new Set<number>();
+
+/**
+ * Type into the focused element with real (trusted) key events, then Tab. Workday's date boxes ignore scripted
+ * values and synthetic key events; only real keys commit them (GSK wd3, 2026-11-05). Chrome shows its "started
+ * debugging this browser" bar while attached; the run detaches when it ends.
+ */
+/**
+ * A real mouse click at a point of the tab's viewport (CSS px), through chrome.debugger like typeWithDebugger: for a
+ * button that ignores scripted clicks (Workday's Create Account on Cisco, 2026-11-06). Detached when the run ends.
+ */
+async function clickWithDebugger(tabId: number, x: number, y: number): Promise<boolean> {
+  const target = { tabId };
+  try {
+    if (!debuggerTabs.has(tabId)) {
+      await chrome.debugger.attach(target, '1.3');
+      debuggerTabs.add(tabId);
+    }
+    const mouse = (type: string, extra: Record<string, unknown> = {}) =>
+      chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1, ...extra });
+    await mouse('mouseMoved', { button: 'none', clickCount: 0 });
+    await delay(80);
+    await mouse('mousePressed', { buttons: 1 });
+    await delay(60);
+    await mouse('mouseReleased', { buttons: 0 });
+    return true;
+  } catch (e) {
+    await log(db, 'warn', `AI apply: could not click with a real mouse press: ${String(e).slice(0, 160)}`);
+    return false;
+  }
+}
+
+async function typeWithDebugger(tabId: number, text: string): Promise<boolean> {
+  const target = { tabId };
+  try {
+    if (!debuggerTabs.has(tabId)) {
+      await chrome.debugger.attach(target, '1.3');
+      debuggerTabs.add(tabId);
+    }
+    const key = async (k: string, code: string, vk: number, txt?: string) => {
+      await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', { type: 'keyDown', key: k, code, windowsVirtualKeyCode: vk, text: txt, unmodifiedText: txt });
+      await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, windowsVirtualKeyCode: vk });
+    };
+    for (const ch of text) {
+      const digit = /\d/.test(ch);
+      await key(ch, digit ? `Digit${ch}` : `Key${ch.toUpperCase()}`, ch.toUpperCase().charCodeAt(0), ch);
+      await delay(40);
+    }
+    await key('Tab', 'Tab', 9);
+    await delay(250);
+    return true;
+  } catch (e) {
+    await log(db, 'warn', `AI apply: could not type with real keys: ${String(e).slice(0, 160)}`);
+    return false;
+  }
+}
+
+async function detachDebugger(tabId: number): Promise<void> {
+  if (!debuggerTabs.has(tabId)) return;
+  debuggerTabs.delete(tabId);
+  await chrome.debugger.detach({ tabId }).catch(() => undefined);
+}
+
+/** Inject the form engine into every frame of the tab (a second copy stays silent) and list the frames it reached. */
+async function engineFrames(tabId: number): Promise<number[]> {
+  const results = await withTimeout(
+    chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: [FORM_ENGINE] }), ENGINE_INJECT_MS, 'injecting the form engine',
+  ).catch(() => []);
+  return results.map((r) => r.frameId);
+}
+
+/**
+ * Time limits for AI apply's calls into a tab. A call that never answers (seen after Submit on Greenhouse, 2026-11-05:
+ * the run stopped at "Pressing Submit" and never finished) now fails, and the flow retries or ends with a reason.
+ */
+const ENGINE_INJECT_MS = 20_000;
+/** Reading a big form opens every dropdown (Greenhouse: about 7 s for 18) and a heavy page can freeze for 45 s. */
+const ENGINE_MESSAGE_MS = 90_000;
+
+function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`no answer from the page after ${Math.round(ms / 1000)} s (${what})`)), ms);
+    p.then((v) => { clearTimeout(t); resolve(v); }, (e: unknown) => { clearTimeout(t); reject(e); });
+  });
+}
+
+interface AiRunOptions {
+  /** Started by the agent: its switches and halts are re-read before every click. Otherwise you started it. */
+  agent: boolean;
+  status?: (text: string) => void;
+}
+
+/**
+ * Run AI apply in a tab that shows the job or its form. `keepOpen`: the tab should stay for you (the form waits for
+ * your Submit, or you started the run). `tabId` is where the run ended, which may be a tab the Apply button opened.
+ */
+async function runAi(tabId: number, url: string, mode: FlowMode, opts: AiRunOptions): Promise<{ report: ApplyReport; keepOpen: boolean; tabId: number }> {
+  if (!(await chrome.permissions.contains(ALL_SITES))) {
+    const report = { ...agentFail('needs_me', 'AI apply needs access to all sites: press "Allow AI apply on all sites" in the Agent panel'), questions: ['Allow AI apply on all sites'] };
+    return { report, keepOpen: false, tabId };
+  }
+  const [config, profile, backend, resume, coverLetter, memory] = await Promise.all([
+    loadAgent(), load('aiProfile'), load('aiBackend'), load('aiResume'), load('aiCoverLetter'), load('formMemory'),
+  ]);
+  const down = await backendHealth(backend);
+  if (down) return { report: agentFail('error', `AI ${down}`), keepOpen: false, tabId };
+
+  let current = tabId;
+  let frameCache: { at: number; ids: number[] } | null = null;
+  aiChildTabs.set(tabId, []);
+  const chainTabs = new Set<number>([tabId]);
+  const stopGen = aiStopGen;
+  const deps: FlowDeps = {
+    frames: async () => {
+      if (!frameCache || Date.now() - frameCache.at > 2_000) frameCache = { at: Date.now(), ids: await engineFrames(current) };
+      return frameCache.ids;
+    },
+    send: (frameId, msg) => withTimeout(chrome.tabs.sendMessage(current, msg, { frameId }), ENGINE_MESSAGE_MS, String(msg.type)),
+    currentUrl: async () => (await chrome.tabs.get(current)).url ?? '',
+    typeTrusted: (text) => typeWithDebugger(current, text),
+    clickTrusted: (x, y) => clickWithDebugger(current, x, y),
+    workdayPlan: buildWorkdayPlan(normalizeProfile(profile), resume ? { name: resume.name, type: resume.type, data: resume.data } : null),
+    account: await loadAccount(),
+    sleep: delay,
+    now: () => Date.now(),
+    profile: normalizeProfile(profile),
+    resume,
+    coverLetter,
+    memory,
+    bank: config.answers,
+    generate: backendClient(backend),
+    saveMemory: (m) => save('formMemory', m),
+    mayClick: async () => {
+      if (aiStopGen !== stopGen) return 'stopped from the board';
+      if (!opts.agent) return null;
+      const [c, safety, state] = await Promise.all([loadAgent(), load('safety'), load('agentState')]);
+      if (!c.autoApply) return 'auto-apply was turned off';
+      if (c.dryRun) return 'dry run was turned on';
+      if (!c.aiApply) return 'AI apply was turned off';
+      if (safety.haltedAt !== null) return 'refreshes are halted';
+      if (state.haltedAt !== null) return 'auto-apply is halted';
+      return null;
+    },
+    beforeClick: async () => {
+      frameCache = null;
+    },
+    afterApplyClick: async () => {
+      // An Apply button that opens the form in a new tab: carry on there. Chains are followed too: Indeed → the
+      // company's careers page (new tab) → its "Apply now" → Workday (another new tab), seen on Allstate
+      // 2026-11-05, where the run stayed on the careers page and found no form.
+      await delay(800);
+      // Only a tab opened by the tab we are on now: falling back to the first tab's children jumped back from
+      // Workday to the careers page after "Apply Manually" (no new tab) and filled the careers page's search box.
+      const child = (aiChildTabs.get(current) ?? []).at(-1);
+      if (child !== undefined && child !== current) {
+        current = child;
+        if (!aiChildTabs.has(child)) aiChildTabs.set(child, []);
+        chainTabs.add(child);
+        await waitForTabComplete(current, AGENT_PAGE_LOAD_MS).catch(() => false);
+      }
+      frameCache = null;
+    },
+    status: opts.status,
+  };
+  try {
+    // The job's title and company, for the pre-submit check (a message may name the company you apply to).
+    const job = await db.jobs.filter((j) => j.naukriUrl === url || j.externalUrl === url).first().catch(() => undefined);
+    const report = await runAiApply(deps, { mode, job: { title: job?.title ?? '', company: job?.company ?? '', url } });
+    return { report, keepOpen: !opts.agent || report.result === 'ready', tabId: current };
+  } finally {
+    await detachDebugger(current);
+    await detachDebugger(tabId);
+    // Close the extra tabs the run opened (at every hop of a chain), except the one it ended in.
+    const children = [...chainTabs].flatMap((t) => aiChildTabs.get(t) ?? []);
+    for (const t of chainTabs) aiChildTabs.delete(t);
+    for (const child of new Set(children)) if (child !== current) await chrome.tabs.remove(child).catch(() => undefined);
+  }
+}
+
+/**
+ * Your career-site account (dist/account.json, built from ACCOUNT_EMAIL / ACCOUNT_PASSWORD in .env by
+ * scripts/build.mjs), or null. Read fresh per run and never logged.
+ */
+async function loadAccount(): Promise<{ email: string; password: string } | null> {
+  try {
+    const res = await fetch(chrome.runtime.getURL('account.json'));
+    if (!res.ok) return null;
+    const a = (await res.json()) as { email?: unknown; password?: unknown };
+    return typeof a.email === 'string' && typeof a.password === 'string' && a.email && a.password ? { email: a.email, password: a.password } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Saves an answer you gave on a form to form memory, marked as yours (one write at a time). */
+let memoryWrites: Promise<void> = Promise.resolve();
+function rememberYourAnswer(label: string, answer: string, host: string): Promise<void> {
+  memoryWrites = memoryWrites.then(async () => {
+    const memory = await load('formMemory');
+    const key = normalizeLabel(label);
+    if (memory[key]?.answer === answer && memory[key]?.by === 'you') return;
+    await save('formMemory', rememberAnswers(memory, [{ label, answer }], Date.now(), 'you'));
+    await log(db, 'info', `Remembered your answer on ${host}: "${label.slice(0, 80)}" → "${answer.slice(0, 80)}"`);
+  }).catch(() => undefined);
+  return memoryWrites;
+}
+
+/** Open `url` in a new tab and run AI apply there. An agent tab closes afterwards unless a filled form waits in it. */
+async function runAiInNewTab(url: string, mode: FlowMode, opts: AiRunOptions & { active: boolean }): Promise<ApplyReport> {
+  const tab = await chrome.tabs.create({ url, active: opts.active });
+  const tabId = tab.id;
+  if (tabId === undefined) return agentFail('error', 'could not open a tab');
+  let keep = !opts.agent;
+  let lastTab = tabId;
+  try {
+    if (!(await waitForTabComplete(tabId, AGENT_PAGE_LOAD_MS))) return agentFail('error', 'the page did not load');
+    if (opts.agent && (await isHalted())) return agentFail('stopped', 'halted while loading');
+    const ai = await runAi(tabId, url, mode, opts);
+    keep = ai.keepOpen;
+    lastTab = ai.tabId;
+    if (opts.agent && ai.report.result !== 'ready') await delay(pageGapMs(Math.random));
+    return ai.report;
+  } finally {
+    if (!keep) {
+      await chrome.tabs.remove(tabId).catch(() => undefined);
+      if (lastTab !== tabId) await chrome.tabs.remove(lastTab).catch(() => undefined);
+    } else if (lastTab !== tabId) {
+      // The form moved to a tab the Apply button opened; the posting tab is no longer needed.
+      await chrome.tabs.remove(tabId).catch(() => undefined);
+    }
+  }
+}
+
+/**
+ * "Apply with AI" from the board, on a board job or any URL (a company career page): runs now in a tab you can watch,
+ * whatever the agent's switches, and is logged like an agent attempt. Presses Submit only when "AI apply presses
+ * Submit" is on; otherwise it stops at the final step for you.
+ */
+let manualRuns = 0;
+async function runAiManual(url: string, jobId: string | null): Promise<unknown> {
+  {
+    manualRuns += 1;
+    const keepAlive = setInterval(() => chrome.runtime.getPlatformInfo().catch(() => undefined), KEEPALIVE_MS);
+    try {
+      const job = jobId ? await db.jobs.get(jobId) : undefined;
+      const host = new URL(url).hostname.replace(/^www\./, '');
+      const config = await loadAgent();
+      const id = await addAttempt(db, {
+        jobId: job?.jobId ?? `url-${host}`, title: job?.title ?? url, company: job?.company ?? host, startedAt: Date.now(), finishedAt: null,
+        mode: 'live', matched: ['started by you (Apply with AI)'], answers: [], questions: [], clicked: false, outcome: 'pending', reason: '',
+      });
+      broadcastChanged();
+      const report = await runAiInNewTab(url, config.aiSubmit ? 'submit' : 'fill', {
+        agent: false, active: true, status: (t) => { noteAgentCheck(`AI apply: ${t}`).then(broadcastChanged).catch(() => undefined); },
+      }).catch((e: unknown) => agentFail('error', String(e).slice(0, 200)));
+      const outcome = report.result === 'applied' ? 'applied' : report.result === 'ready' ? 'filled' : report.result === 'closed' ? 'skipped'
+        : report.result === 'needs_me' ? 'needs_me' : report.result === 'stopped' ? 'halted' : 'failed';
+      await finishAttempt(db, id, { finishedAt: Date.now(), outcome, reason: report.reason, clicked: report.clicked, answers: report.answers, questions: report.questions });
+      if (outcome === 'applied' && job) await setStatus(db, job.jobId, 'applied', Date.now(), 'agent');
+      // An expired job leaves the board.
+      if (report.result === 'closed' && job) await setStatus(db, job.jobId, 'dismissed', Date.now());
+      await log(db, outcome === 'failed' ? 'warn' : 'info', `AI apply ${outcome.replace('_', ' ')}: ${job?.title ?? url}. ${report.reason}`);
+      await noteAgentCheck(`AI apply: ${outcome.replace('_', ' ')} (${report.reason || 'done'})`);
+    } finally {
+      manualRuns -= 1;
+      clearInterval(keepAlive);
+      broadcastChanged();
+    }
+  }
+  return undefined;
+}
+
+/**
+ * After a click without a clear answer, reload the job page and check it without clicking (a dry run). If the page
+ * now shows Applied, the apply went through.
+ */
+async function verifyApplied(tabId: number, url: string, report: ApplyReport): Promise<ApplyReport> {
+  try {
+    await chrome.tabs.update(tabId, { url });
+    await delay(1_000);
+    if (!(await waitForTabComplete(tabId, AGENT_PAGE_LOAD_MS))) return report;
+    const landed = await chrome.tabs.get(tabId);
+    const jobId = jobPageOf(landed.url ?? url)?.jobId;
+    if (!jobId) return report;
+    const token = newToken();
+    const check = new Promise<ApplyReport>((resolve) => {
+      agentRun = { tabId, token, jobId, sent: false, clicked: false, resolve };
+      setTimeout(() => resolve(agentFail('error', 'no report')), 60_000);
+    });
+    if (!(await sendApplyRun(tabId, { type: 'apply-run', token, dryRun: true, fillForms: false, answers: [] }))) return report;
+    const seen = await check;
+    if (seen.result === 'already_applied') return { ...report, result: 'applied', reason: 'job page shows Applied after reload' };
+    return { ...report, reason: `${report.reason}; after reload the page shows ${seen.result.replace('_', ' ')}` };
+  } finally {
+    agentRun = null;
+  }
+}
+
+const agentDeps: RunDeps = {
+  now: () => Date.now(),
+  rand: Math.random,
+  loadConfig: loadAgent,
+  loadSafety: () => load('safety'),
+  loadState: () => load('agentState'),
+  saveState: (s) => save('agentState', s),
+  listAttempts: () => listAttempts(db, Date.now() - ATTEMPT_RETENTION_MS),
+  queue: async (config, attempts) => {
+    const [jobs, statuses, hideWords] = await Promise.all([db.jobs.toArray(), db.statuses.toArray(), load('hiddenTitleWords')]);
+    return buildQueue(jobs, statuses, attempts, config, hideWords, Date.now());
+  },
+  addAttempt: (a) => addAttempt(db, a),
+  finishAttempt: (id, patch) => finishAttempt(db, id, patch),
+  markApplied: async (jobId, by) => {
+    await setStatus(db, jobId, 'applied', Date.now(), by);
+  },
+  dismiss: async (jobId) => {
+    await setStatus(db, jobId, 'dismissed', Date.now());
+  },
+  runInTab: runInAgentTab,
+  haltAll: () => haltAll('iimjobs'),
+  log: (level, message) => log(db, level, message),
+};
+
+/** Pages of each agent site a refresh has open right now; the agent waits while its next site has any. */
+const refreshSiteTabs: Record<AgentSite, number> = { iimjobs: 0, instahyre: 0, naukri: 0, wellfound: 0 };
+/** Agent runs go one at a time, on their own chain: a long refresh of other sites must not hold them up. */
+let agentChain: Promise<unknown> = Promise.resolve();
+let agentBusy = false;
+let agentBusySince: number | null = null;
+const AGENT_BUSY_RETRY_MS = 2 * 60_000;
+
+/** Resolves once no agent attempt is running (a refresh calls it before opening an iimjobs page). */
+async function agentIdle(): Promise<void> {
+  while (agentBusy) await delay(2_000);
+}
+
+/** Why a run did nothing, in words for the board and the log. */
+async function explainNoRun(reason: NoRunReason): Promise<string> {
+  switch (reason) {
+    case 'off': return 'Auto-apply is off';
+    case 'halted': return 'Stopped; press Resume';
+    case 'night': {
+      const c = await loadAgent();
+      return `Outside working hours; runs ${hoursLabel(c)}`;
+    }
+    case 'cap': return 'Every platform has reached its daily page limit; continues tomorrow';
+    case 'spacing': return 'Waiting for the gap between applications on the same platform';
+    case 'limit': {
+      const st = await load('agentState');
+      return `AI usage limit reached; continues by itself after ${new Date(st.limitUntil ?? Date.now()).toLocaleString()}`;
+    }
+    default: {
+      const [config, jobs, statuses, attempts, hideWords] = await Promise.all([
+        loadAgent(), db.jobs.toArray(), db.statuses.toArray(), listAttempts(db, Date.now() - ATTEMPT_RETENTION_MS), load('hiddenTitleWords'),
+      ]);
+      return explainEmptyQueue(jobs, statuses, attempts, config, hideWords, Date.now());
+    }
+  }
+}
+
+/** Record what the last run did, for the header and the Agent panel; a new kind of result also goes to the log. */
+async function noteAgentCheck(text: string): Promise<void> {
+  const prev = await load('agentState');
+  await save('agentState', { ...prev, lastCheckAt: Date.now(), lastCheck: text });
+  if (prev.lastCheck !== text) await log(db, 'info', `Auto-apply: ${text}`);
+}
+
+/** One agent run. It waits only while a refresh has an iimjobs page open, then tries again in 2 minutes. */
+function runAgent(opts: { ignoreGap?: boolean } = {}): Promise<unknown> {
+  const run = agentChain.then(async () => {
+    const onSites = (await loadAgent()).sites;
+    const busySite = AGENT_SITES.find((s) => refreshSiteTabs[s] > 0 && onSites.includes(s));
+    if (busySite) {
+      await noteAgentCheck(`Waiting for a refresh to close its ${SITE_PAGES[busySite].name} page`);
+      await chrome.alarms.create(ALARM_AGENT, { when: Date.now() + AGENT_BUSY_RETRY_MS });
+      await update('agentState', (s) => ({ ...s, nextRunAt: Date.now() + AGENT_BUSY_RETRY_MS }));
+      broadcastChanged();
+      return;
+    }
+    agentBusy = true;
+    agentBusySince = Date.now();
+    const keepAlive = setInterval(() => chrome.runtime.getPlatformInfo().catch(() => undefined), KEEPALIVE_MS);
+    try {
+      await recoverAttempts();
+      const result = await runOnce(agentDeps, opts);
+      await noteAgentCheck(result.ran ? `Last attempt: ${result.outcome.replace('_', ' ')}` : await explainNoRun(result.reason));
+    } finally {
+      agentBusy = false;
+      agentBusySince = null;
+      clearInterval(keepAlive);
+      broadcastChanged();
+      await scheduleAgent(true).catch(() => undefined);
+    }
+  });
+  agentChain = run.catch(() => undefined);
+  return run;
+}
+
+async function notifySummary(): Promise<void> {
+  const from = startOfDay(Date.now());
+  const s = summarize(await listAttempts(db, from), from);
+  const parts = [`${s.applied} applied`, `${s.needsMe} need you`, `${s.failed} failed`];
+  if (s.wouldApply) parts.push(`${s.wouldApply} would apply (dry run)`);
+  chrome.notifications.create('agent-summary', {
+    type: 'basic',
+    iconUrl: chrome.runtime.getURL('icon-128.png'),
+    title: 'iimjobs auto-apply today',
+    message: parts.join(', '),
+  });
 }
 
 // ---------- message routing ----------
@@ -398,15 +1066,44 @@ chrome.runtime.onMessage.addListener((raw: unknown, sender, sendResponse) => {
     }
     if (msg.type === 'resume') {
       update('safety', resume)
-        .then(() => log(db, 'info', 'Refresh resumed'))
+        .then(() => update('agentState', (st) => ({ ...st, haltedAt: null, haltReason: null, notFoundStreak: 0 })))
+        .then(() => log(db, 'info', 'Refresh and auto-apply resumed'))
         .then(schedule)
         .then(() => sendResponse({ ok: true }));
       return true;
     }
+    if (msg.type === 'ai-apply') {
+      // Applies you start run in parallel, each in its own tab, alongside the agent.
+      runAiManual(msg.url, msg.jobId).catch((e: unknown) => log(db, 'error', `AI apply failed: ${String(e)}`));
+      sendResponse({ ok: true, running: manualRuns + 1 });
+      return false;
+    }
+    if (msg.type === 'ai-apply-stop') {
+      aiStopGen += 1;
+      sendResponse({ ok: true });
+      return false;
+    }
+    if (msg.type === 'agent-run-now') {
+      // Still bound by the switch, halts, waking hours and the daily limit; only the 3 to 8 minute gap is skipped.
+      chrome.alarms.clear(ALARM_AGENT).then(() => runAgent({ ignoreGap: true })).catch(() => undefined);
+      sendResponse({ ok: true });
+      return false;
+    }
     if (msg.type === 'reschedule') {
-      schedule().then(() => sendResponse({ ok: true }));
+      // Agent settings may have changed (switch, cap), so its next run is picked again.
+      schedule().then(() => scheduleAgent(true)).then(() => sendResponse({ ok: true }));
       return true;
     }
+    return false;
+  }
+
+  // Your own answer on an application form, from the form engine in a tab the agent works in (any career site, not
+  // only the job boards): remembered as yours, so the agent gives it next time (user, 2026-11-06).
+  if (sender.tab && (raw as { type?: unknown })?.type === 'user-answer') {
+    const parsed = CollectorMessage.safeParse(raw);
+    if (!parsed.success || parsed.data.type !== 'user-answer') return false;
+    const { label, answer, host } = parsed.data;
+    rememberYourAnswer(label, answer, host).catch(() => undefined);
     return false;
   }
 
@@ -449,6 +1146,16 @@ chrome.runtime.onMessage.addListener((raw: unknown, sender, sendResponse) => {
         .catch(() => undefined);
       break;
     }
+    case 'apply-progress':
+      if (site !== 'linkedin' && agentRun && tabId === agentRun.tabId && msg.token === agentRun.token) agentRun.clicked = true;
+      break;
+    case 'apply-report':
+      // Only the tab the agent opened, with the token it was given, can report a result.
+      if ((AGENT_SITES as string[]).includes(site) && agentRun && tabId === agentRun.tabId && msg.token === agentRun.token) {
+        const { type: _type, token: _token, ...report } = msg;
+        agentRun.resolve(report);
+      }
+      break;
     case 'applied-detected':
       db.jobs.get(msg.jobId).then(async (job) => {
         if (!job) return;
@@ -463,10 +1170,37 @@ chrome.runtime.onMessage.addListener((raw: unknown, sender, sendResponse) => {
 
 // ---------- lifecycle ----------
 
+/**
+ * Load your job-apply-ai-mvp data (seed/ai-seed.json, bundled by the build) once per seed version. Your own edits
+ * win: a saved profile or an uploaded file is kept, and remembered answers are merged.
+ */
+async function loadAiSeed(): Promise<void> {
+  const res = await fetch(chrome.runtime.getURL('ai-seed.json')).catch(() => null);
+  if (!res?.ok) return;
+  const seed = (await res.json()) as AiSeed;
+  if (!Number.isFinite(seed.version) || (await load('aiSeedVersion')) === seed.version) return;
+  const stored = await chrome.storage.local.get('aiProfile');
+  const [memory, resume, coverLetter] = await Promise.all([load('formMemory'), load('aiResume'), load('aiCoverLetter')]);
+  const patch = seedPatch(seed, {
+    profileSaved: stored.aiProfile !== undefined,
+    savedProfile: stored.aiProfile !== undefined ? normalizeProfile(stored.aiProfile) : undefined,
+    memory, resume, coverLetter,
+  });
+  if (patch.profile) await save('aiProfile', patch.profile);
+  if (patch.memory) await save('formMemory', patch.memory);
+  if (patch.resume) await save('aiResume', patch.resume);
+  if (patch.coverLetter) await save('aiCoverLetter', patch.coverLetter);
+  await save('aiSeedVersion', seed.version);
+  const what = [patch.profile && 'profile', patch.memory && `${Object.keys(patch.memory).length - Object.keys(memory).length} remembered answers`, patch.resume && 'resume', patch.coverLetter && 'cover letter'].filter(Boolean);
+  if (what.length) await log(db, 'info', `AI apply: loaded your job-apply-ai-mvp data (${what.join(', ')})`);
+}
+
 chrome.runtime.onInstalled.addListener(() => {
+  loadAiSeed().catch((e: unknown) => log(db, 'warn', `AI apply: could not load seed data: ${String(e)}`));
   schedule().catch(() => undefined);
 });
 chrome.runtime.onStartup.addListener(() => {
+  loadAiSeed().catch(() => undefined);
   schedule().catch(() => undefined);
 });
 
@@ -480,12 +1214,39 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     if (inActiveHours(Date.now())) refresh('daily').catch(() => undefined);
     else scheduleIndeedDaily(true).catch(() => undefined);
   }
+  if (alarm.name === ALARM_AGENT) runAgent().catch(() => undefined);
+  if (alarm.name === ALARM_AGENT_WATCHDOG) agentWatchdog().catch(() => undefined);
+  if (alarm.name === ALARM_AGENT_SUMMARY) notifySummary().catch(() => undefined);
   if (alarm.name === ALARM_PURGE) {
     purge(db, Date.now())
       .then((n) => (n ? log(db, 'info', `Purged ${n} jobs older than 60 days`) : undefined))
       .then(broadcastChanged)
       .catch(() => undefined);
   }
+});
+
+// After Apply, iimjobs leaves the job page for its confirmation page, which ends the applier on the old page. Watch
+// the agent's tab instead: the confirmation for this job means applied; any other move (to another page or another
+// job) gets checked by reopening the job page.
+chrome.tabs.onUpdated.addListener((tabId, change) => {
+  const run = agentRun;
+  if (!run || tabId !== run.tabId || !run.sent) return;
+  // The same page reloading after Apply (Instahyre does) ends the applier mid-run: check by reopening the job.
+  if (!change.url && change.status === 'loading' && run.clicked) {
+    run.resolve({ ...agentFail('no_confirmation', 'the job page reloaded after Apply'), clicked: true });
+    return;
+  }
+  if (!change.url) return;
+  if (confirmedJobIds(change.url).includes(run.jobId)) {
+    run.resolve({ ...agentFail('applied', `${new URL(change.url).hostname.replace(/^www\./, '')} confirmed: application submitted`), clicked: true });
+  } else if (jobPageOf(change.url)?.jobId !== run.jobId || run.clicked) {
+    // Left this job's page, to another page or another job, or reloaded it after Apply: check by reopening the job.
+    run.resolve({ ...agentFail('no_confirmation', `page moved to ${new URL(change.url).pathname} after Apply`), clicked: run.clicked || jobPageOf(change.url)?.jobId !== run.jobId });
+  }
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  if (agentRun?.tabId === tabId) agentRun.resolve(agentFail('error', 'the job page tab was closed'));
 });
 
 chrome.action.onClicked.addListener(() => {
@@ -495,3 +1256,17 @@ chrome.action.onClicked.addListener(() => {
 chrome.notifications.onClicked.addListener(() => {
   openBoard().catch(() => undefined);
 });
+
+/** Once: switch the agent to "apply to every matching job" (your request of 2026-11-04). Later changes in the panel stay. */
+async function switchToApplyEverywhere(): Promise<void> {
+  if ((await load('agentEverywhereAt')) !== null) return;
+  const next = applyEverywhere(await loadAgent());
+  await save('agent', next);
+  await save('agentEverywhereAt', Date.now());
+  await log(db, 'info', `Auto-apply: now applies to every matching job on all platforms (one-click and company sites, live, AI presses Submit), ${hoursLabel(next)}`);
+  await scheduleAgent(true);
+  broadcastChanged();
+}
+
+// Every worker start (also after the laptop wakes): make sure the agent's next run and keep-awake are in place.
+switchToApplyEverywhere().catch(() => undefined).then(() => agentWatchdog()).catch(() => undefined);

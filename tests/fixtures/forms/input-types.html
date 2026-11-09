@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Input types test form</title>
+<style>
+  body { font: 14px/1.4 system-ui, sans-serif; max-width: 760px; margin: 24px auto; padding: 0 16px; color: #1d1d1f; background: #fff; }
+  .q { margin: 14px 0; } label, legend { display: block; font-weight: 600; margin-bottom: 4px; }
+  fieldset { border: 0; padding: 0; margin: 0; } fieldset label { display: inline; font-weight: 400; margin-right: 12px; }
+  input[type=text], input[type=email], input[type=url], input[type=tel], input[type=number], input[type=date], input[type=time],
+  input[type=month], input[type=datetime-local], select, textarea { padding: 6px; min-width: 260px; }
+  .switch { display: inline-block; width: 44px; height: 24px; border-radius: 12px; background: #bbb; cursor: pointer; position: relative; }
+  .switch[aria-checked=true] { background: #2a7; }
+  .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .1s; }
+  .switch[aria-checked=true]::after { left: 23px; }
+  .aslider { width: 300px; height: 8px; background: #ddd; border-radius: 4px; position: relative; cursor: pointer; }
+  .aslider .thumb { position: absolute; top: -6px; width: 20px; height: 20px; margin-left: -10px; border-radius: 50%; background: #36c; }
+  .stars span { font-size: 24px; cursor: pointer; color: #ccc; } .stars span[aria-checked=true], .stars span.on { color: #e9a400; }
+  #sig { border: 1px dashed #888; background: #fafafa; touch-action: none; }
+  #city-list { list-style: none; margin: 0; padding: 0; border: 1px solid #ccc; width: 270px; }
+  #city-list li { padding: 4px 8px; cursor: pointer; } #city-list li:hover { background: #eef; }
+</style>
+</head>
+<body>
+<h1>Product Manager application</h1>
+<form id="app" onsubmit="return false">
+  <!-- Text-based -->
+  <div class="q"><label for="name">Full name *</label><input id="name" name="name" type="text" required></div>
+  <div class="q"><label for="why">Why do you want to join us? *</label><textarea id="why" name="why" rows="3" required></textarea></div>
+  <div class="q"><label for="email">Email *</label><input id="email" name="email" type="email" required></div>
+  <div class="q"><label for="li">LinkedIn profile URL</label><input id="li" name="li" type="url"></div>
+  <div class="q"><label for="code">Country code *</label>
+    <select id="code" name="code" required><option value="">Select</option><option value="1">United States (+1)</option><option value="44">United Kingdom (+44)</option><option value="91">India (+91)</option></select>
+    <label for="phone">Phone number *</label><input id="phone" name="phone" type="tel" maxlength="10" placeholder="10-digit number" required></div>
+  <div class="q"><label for="street">Street address</label><input id="street" name="street" type="text"></div>
+  <div class="q"><label for="postal">Postal code</label><input id="postal" name="postal" type="text"></div>
+
+  <!-- Selection-based -->
+  <div class="q"><fieldset><legend>Preferred work mode *</legend>
+    <label><input type="radio" name="mode" value="Remote"> Remote</label><label><input type="radio" name="mode" value="Hybrid"> Hybrid</label><label><input type="radio" name="mode" value="On-site"> On-site</label></fieldset></div>
+  <div class="q"><fieldset><legend>Which tools have you used?</legend>
+    <label><input type="checkbox" name="tools" value="Jira"> Jira</label><label><input type="checkbox" name="tools" value="Figma"> Figma</label><label><input type="checkbox" name="tools" value="SQL"> SQL</label><label><input type="checkbox" name="tools" value="Tableau"> Tableau</label></fieldset></div>
+  <div class="q"><label for="degree">Highest degree *</label>
+    <select id="degree" name="degree" required><option value="">Select</option><option>High school</option><option>Bachelor's degree</option><option>Master's degree</option><option>PhD</option></select></div>
+  <div class="q"><fieldset><legend>Are you willing to relocate? *</legend>
+    <label><input type="radio" name="reloc" value="Yes"> Yes</label><label><input type="radio" name="reloc" value="No"> No</label></fieldset></div>
+  <div class="q"><label id="night-l">Open to night shifts</label><span id="night" class="switch" role="switch" aria-checked="false" aria-labelledby="night-l" tabindex="0"></span></div>
+  <div class="q"><label for="city">Current city *</label><input id="city" name="city" type="text" autocomplete="off" aria-autocomplete="list" aria-controls="city-list" required><ul id="city-list" role="listbox" hidden></ul></div>
+
+  <!-- Numeric -->
+  <div class="q"><label for="yrs">Years of product management experience *</label><input id="yrs" name="yrs" type="number" min="0" max="40" required></div>
+  <div class="q"><label for="travel">Comfort with travel (0-100)</label><input id="travel" name="travel" type="range" min="0" max="100" step="10" value="0"></div>
+  <div class="q"><label id="team-l">Preferred team size</label><div id="team" class="aslider" role="slider" aria-labelledby="team-l" aria-valuemin="1" aria-valuemax="20" aria-valuenow="1" tabindex="0"><div class="thumb"></div></div></div>
+  <div class="q"><fieldset><legend>Rate your SQL skills (1-5)</legend>
+    <label><input type="radio" name="sql" value="1"> 1</label><label><input type="radio" name="sql" value="2"> 2</label><label><input type="radio" name="sql" value="3"> 3</label><label><input type="radio" name="sql" value="4"> 4</label><label><input type="radio" name="sql" value="5"> 5</label></fieldset></div>
+
+  <!-- Date and time -->
+  <div class="q"><label for="start">Earliest start date *</label><input id="start" name="start" type="date" required></div>
+  <div class="q"><label for="call">Best time to call</label><input id="call" name="call" type="time"></div>
+  <div class="q"><label for="grad">Graduation month</label><input id="grad" name="grad" type="month"></div>
+  <div class="q"><label for="slot">Preferred interview slot</label><input id="slot" name="slot" type="datetime-local"></div>
+  <div class="q"><label for="period">Employment period (date range) at current company</label><input id="period" name="period" type="text"></div>
+
+  <!-- Files and specialised -->
+  <div class="q"><label for="cv">Resume *</label><input id="cv" name="cv" type="file" required></div>
+  <div class="q"><label id="sig-l">Signature *</label><div class="signature-pad"><canvas id="sig" width="320" height="100" aria-labelledby="sig-l"></canvas></div></div>
+
+  <button type="submit">Submit application</button>
+</form>
+<script>
+(function () {
+  // Toggle switch.
+  var night = document.getElementById('night');
+  night.addEventListener('click', function () { night.setAttribute('aria-checked', night.getAttribute('aria-checked') === 'true' ? 'false' : 'true'); });
+  // ARIA slider: arrow keys and clicks on the track.
+  var team = document.getElementById('team');
+  function setTeam(v) { v = Math.max(1, Math.min(20, v)); team.setAttribute('aria-valuenow', String(v)); var t = team.querySelector('.thumb'); if (t) t.style.left = ((v - 1) / 19 * 100) + '%'; }
+  team.addEventListener('keydown', function (e) { var v = Number(team.getAttribute('aria-valuenow')); if (e.key === 'ArrowRight' || e.key === 'ArrowUp') setTeam(v + 1); if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') setTeam(v - 1); });
+  team.addEventListener('mousedown', function (e) { var r = team.getBoundingClientRect(); if (r.width) setTeam(Math.round(1 + (e.clientX - r.left) / r.width * 19)); });
+  // City suggestions: shown as you type, only a picked one is kept.
+  var cities = ['Bangalore', 'Bengaluru Rural', 'Mumbai', 'New Delhi', 'Hyderabad', 'Pune', 'Chennai'];
+  var city = document.getElementById('city');
+  var list = document.getElementById('city-list');
+  city.addEventListener('input', function () {
+    var q = city.value.trim().toLowerCase();
+    list.innerHTML = '';
+    list.hidden = true;
+    if (!q) return;
+    cities.filter(function (c) { return c.toLowerCase().indexOf(q) === 0; }).forEach(function (c) {
+      var li = document.createElement('li'); li.setAttribute('role', 'option'); li.textContent = c;
+      li.addEventListener('mousedown', function () { city.value = c; city.dataset.picked = c; list.innerHTML = ''; list.hidden = true; });
+      li.addEventListener('click', function () { city.value = c; city.dataset.picked = c; list.innerHTML = ''; list.hidden = true; });
+      list.appendChild(li);
+    });
+    list.hidden = !list.children.length;
+  });
+  // Signature pad.
+  var sig = document.getElementById('sig');
+  var ctx = sig.getContext && sig.getContext('2d');
+  var drawing = false;
+  function at(e) { var r = sig.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+  sig.addEventListener('pointerdown', function (e) { drawing = true; if (ctx) { var p = at(e); ctx.beginPath(); ctx.moveTo(p[0], p[1]); } });
+  sig.addEventListener('pointermove', function (e) { if (!drawing) return; sig.dataset.strokes = String(Number(sig.dataset.strokes || 0) + 1); if (ctx) { var p = at(e); ctx.lineTo(p[0], p[1]); ctx.lineWidth = 2; ctx.stroke(); } });
+  window.addEventListener('pointerup', function () { drawing = false; });
+})();
+</script>
+</body>
+</html>

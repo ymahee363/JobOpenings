@@ -168,8 +168,110 @@ job Applied; feed `wellfound-search`. Listings show "Apply on Wellfound", so the
   [product manager search](https://www.linkedin.com/jobs/search-results/?keywords=%22Product%20manager%22&f_TPR=r86400&f_AL=true)):
   the extension reads the job cards already on screen, and again as you scroll or change page. It sends no
   requests, clicks nothing and does not hook LinkedIn's network calls. LinkedIn links are refused in the Sources panel.
-- It never applies for you.
+- It never applies for you, except the optional **iimjobs auto-apply** agent below, which is off until you turn it on.
 - Personal use only; no data leaves your machine.
+
+## Auto-apply on iimjobs, Instahyre, Naukri and Wellfound (optional)
+
+Spec: [PRD-auto-apply.md](PRD-auto-apply.md); build plan: [PLAN-auto-apply.md](PLAN-auto-apply.md).
+
+The **Agent** panel can apply to iimjobs jobs for you: only jobs that apply on iimjobs itself (Easy Apply) and
+pass every rule you set (title phrases, excluded words, your years of experience, locations, salary floor, company
+blocklist, posted within N days). It is **off** and in **dry run** until you change both.
+
+1. Open **Agent**, set **My years of experience** (no job matches until you do) and check the other rules.
+2. Add answers to the **Answer bank** (for example `notice period` → `30 days`, `expected ctc` → `55`).
+3. Press **Start auto-apply** in the header. In dry run it opens each matching job page, checks it, and logs
+   **Would apply** without clicking.
+4. When the dry-run results look right, tick **Live applying** (it unlocks after the dry run has checked a job).
+
+How it behaves:
+
+- **Apply on:** tick **All platforms** or any of iimjobs, Instahyre and Naukri in the Agent panel (iimjobs only by
+  default). On Naukri it presses only `Apply` (Easy Apply), never "Apply on company site"; Naukri's chatbot
+  questions count as a form, so those jobs are left for you. Wellfound usually asks for a note to the company, so
+  in one-click mode most Wellfound jobs end up under **Asked for details**.
+- If it pressed Apply but could not confirm the result (even after reloading the page), it never presses Apply on
+  that job again; the job is listed under **Pressed Apply, not confirmed** for you to check. Instahyre shows no
+  experience range, so its jobs pass that rule; every other rule applies to both.
+- **Platforms take turns:** the queue takes one job from each platform in round-robin order (2 Naukri, 1 Instahyre,
+  3 iimjobs → Naukri, iimjobs, Instahyre, Naukri, iimjobs, iimjobs). **Seconds between two applications on the same
+  platform** (default 300) is kept per platform; between different platforms the wait is that gap divided by the
+  number of platforms queued (never under 10 s), plus up to 15% random. **Run now** skips the wait.
+- One job page at a time, in a background tab, only inside your **Start at / Stop at**
+  hours (default 9:00 to 22:00, up to midnight), at most 20 pages a day **per platform** (1 to 100 in the panel; dry run counts too; a platform that reaches it sits out
+  until tomorrow while the others carry on). It never has a site's page open while a refresh has a page of that site open.
+- Success is iimjobs' "Job Applied" page (`/job/applied?jobId=…`) or the button turning to "Applied"; on Instahyre the
+  button turning to "Application sent!"; on Naukri "Applied" (`#already-applied`). Anything unclear after a click is checked by reloading the job page.
+- It presses `Apply` on the job page and counts the job as applied only when the button turns to **Applied**.
+- **One-click only by default:** if iimjobs opens anything that asks for details after Apply, the agent closes it
+  without submitting and moves the job to the board's **Extra Details** tab (with the reason) and the Agent panel's
+  **Asked for details** list; it stays on your board to apply yourself and the
+  agent does not try it again. Ticking **Also fill in forms from the answer bank** lets it fill such forms, only from
+  your stored answers and only when every required question has one. It never guesses and never uploads files.
+- Right before every click it re-reads the switches: **Stop auto-apply** stops the very next click.
+- A captcha stops everything (refreshes too) until **Resume**. A logout, or three pages in a row where it can't find
+  the Apply button (iimjobs changed its page), stops only the agent until **Resume**.
+- Every attempt is in the Agent panel's **Log** (exportable as CSV, kept 180 days), with the rules it matched and
+  the answers it gave. Jobs it applied to show **Applied by agent**. Other sites are never auto-applied.
+
+| Part | File |
+| --- | --- |
+| Rules, queue, answer bank, pacing, outcomes (pure, tested) | `src/shared/auto-apply/` |
+| iimjobs selectors and page states (one file) | `src/shared/auto-apply/iimjobs-page.ts` |
+| Applier in the job page | `src/content/applier-run.ts` (tested against a fake page), wired in `src/content/applier.ts`; runs only when the agent asks, in its own tab |
+| Scheduler | `src/background/service-worker.ts` (auto-apply section) |
+| Panel | `src/board/AgentPanel.tsx` |
+
+## AI apply: any site, company career pages included (optional)
+
+AI apply comes from job-apply-ai-mvp. It fills **any** application form for you: Greenhouse, Lever, Workday, a
+company's own career page, or a job board's apply pop-up. It answers from your profile (seeded for
+mahendra.iitg@gmail.com), the answer bank, answers it remembered from earlier forms, and an LLM.
+
+**Setup (once)**
+
+1. Start the AI backend (FastAPI; Gemini, with Groq as the fallback). The API keys stay in `backend/.env`, which git
+   ignores:
+   ```bat
+   cd backend
+   python -m venv .venv && .venv\Scripts\pip install -r requirements.txt
+   start-backend.bat
+   ```
+   It listens on `http://127.0.0.1:8000` and restarts itself if it exits. The job-apply-ai-mvp backend on port 8000 works
+   too.
+2. Open the board, go to **Profile**, check your details, upload your resume and paste its text. You can also import
+   the profile from job-apply-ai-mvp with the steps shown there. Press **Test backend**.
+3. In the **Agent** panel, press **Allow AI apply on all sites**. Chrome asks once, because AI apply has to read forms
+   on sites the extension does not know in advance.
+
+**Using it**
+
+- **Apply with AI** on any job on the board, or paste any job or career-page URL into the Agent panel. It runs now, in
+  a tab you can watch. It presses Apply, fills each page, attaches your resume, presses Next, and stops at the final
+  Submit for you. Turn on **AI apply presses the final Submit** to let it submit too.
+- **In auto-apply:** tick **Use AI apply in auto-apply**. The agent then also takes jobs that apply on a company site,
+  Indeed, Cutshort and foundit jobs (sites with no one-click applier), and one-click jobs whose site asks for details.
+  Dry run still clicks nothing: it only reads the form and logs the answers it would give. LinkedIn is never applied to
+  on its own; use **Apply with AI** on a LinkedIn job yourself.
+- **Where answers come from**, in order: what the page already holds, your profile (name, email, phone, CTC,
+  experience entries and so on), the answer bank, remembered answers, then the LLM. The LLM is told to answer truthfully
+  and never invent experience. What it answers is remembered, so the same question costs nothing next time. You can
+  review and delete remembered answers in **Profile**.
+- **It stops and leaves the job for you** ("Asked for details") when a required question has no truthful answer, the
+  site wants a login or a new account, a captcha shows, the form rejects an answer twice, or Next does not move on.
+  Answer the questions in the Agent panel: the answers go into the answer bank and the job goes back in the queue.
+- A form filled and left for your Submit shows as **Filled by AI, waiting for your Submit**. Its tab stays open, and
+  the agent never fills it again.
+
+| Part | File |
+| --- | --- |
+| Form engine, ported from job-apply-ai-mvp (reads, fills, finds Apply/Next/Submit) | `src/content/form-engine.ts`, injected by the service worker into the agent's tab |
+| The flow: pages, answers, memory, Submit (pure, tested with a fake page) | `src/shared/ai-apply/flow.ts` |
+| Profile mapping and answer checks (MVP's tests ported) | `src/shared/ai-apply/answer-rules.ts` |
+| Profile, form memory, LLM client | `src/shared/ai-apply/profile.ts`, `memory.ts`, `llm.ts` |
+| Profile panel | `src/board/ProfilePanel.tsx` |
+| LLM backend | `backend/app/main.py` |
 
 ## When a site changes
 
