@@ -1,0 +1,13 @@
+{
+ "before": {
+  "ok": true,
+  "challenge": false,
+  "errors": [],
+  "page": "form"
+ },
+ "after": {
+  "url": "https://jobs.lever.co/fampay/b11c81ce-fe5c-4eb6-a3e1-d268dd3ad926/thanks",
+  "state": null,
+  "text": "Product Manager\nBengaluruProduct /Full Time /On-Site\nApplication submitted!\nRETURN TO THE MAIN PAGE\n\nFam Home Page\n\nWe may use artificial intelligence (AI) tools to support parts of the hiring process, such as reviewing applications, analyzing resumes, or assessing responses and identifying potential inconsistencies or verification signals in application materials based on available information. These tools assist our recruitment team but do not replace human judgment. Final hiring decisions are ultimately made by humans. If you would like more information about how your data is processed, ple"
+ }
+}

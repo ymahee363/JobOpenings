@@ -512,3 +512,75 @@ describe("isResumeLabel / isCoverLetterLabel", () => {
     expect(isCoverLetterLabel("Resume")).toBe(false);
   });
 });
+
+describe("how soon can you join", () => {
+  it("answers tomorrow's date, whatever the AI or notice period said", async () => {
+    const { verifyAndCorrectAnswers, isJoinWhenQuestion, nextDayAnswer } = await import("../src/shared/ai-apply/answer-rules");
+    const { DEFAULT_PROFILE } = await import("../src/shared/ai-apply/profile");
+    const now = new Date(2026, 10, 10); // 10 Nov 2026
+    expect(isJoinWhenQuestion("How soon can you join us?")).toBe(true);
+    expect(isJoinWhenQuestion("When can you start?")).toBe(true);
+    expect(isJoinWhenQuestion("Notice period (days)")).toBe(false);
+    expect(nextDayAnswer("text", now)).toBe("11 Nov 2026");
+    expect(nextDayAnswer("date", new Date(2026, 11, 31))).toBe("2027-01-01");
+    const field = { id: "f1", label: "How soon can you join us?", type: "text", options: [], required: true, current_value: "" };
+    const [a] = verifyAndCorrectAnswers([field as never], [{ field_id: "f1", answer: "11/25/2026", confidence: 0.6, source: "llm" } as never], DEFAULT_PROFILE, now);
+    expect(a!.answer).toBe("11 Nov 2026");
+  });
+});
+
+import { standingAnswer } from '../src/shared/ai-apply/answer-rules';
+describe('your standing answers (2026-11-10)', () => {
+  const yn = (label: string) => ({ label, type: 'radio', options: ['Yes', 'No'] });
+  it('work authorization: India only; sponsorship abroad', () => {
+    expect(standingAnswer(yn('Are you legally authorized to work in the United States?'), 'United States')).toBe('No');
+    expect(standingAnswer(yn('Are you authorized to work in India?'), 'Bengaluru, India')).toBe('Yes');
+    expect(standingAnswer(yn('Are you currently located and have a right to work in EU?'), 'European Union')).toBe('No');
+    expect(standingAnswer(yn('Will you now or in the future require sponsorship for employment visa status (e.g. H-1B)?'), 'United States')).toBe('Yes');
+    expect(standingAnswer(yn('Will you require visa sponsorship?'), 'Bengaluru, India')).toBe('No');
+  });
+  it('never their employee', () => {
+    expect(standingAnswer(yn('Are you a current or former employee of Acme?'))).toBe('No');
+    expect(standingAnswer(yn('Have you ever been employed by Google?'))).toBe('No');
+  });
+  it('salary: USD 30K in the US, EUR 30K in Europe', () => {
+    expect(standingAnswer({ label: 'What would be your expected compensation? (gross/year)', type: 'text', options: [] }, 'United States')).toBe('USD 30,000');
+    expect(standingAnswer({ label: 'Expected Gross Year Salary (in Euros)', type: 'text', options: [] }, 'Barcelona, Catalonia, Spain')).toBe('30000');
+    expect(standingAnswer({ label: 'What would be your expected compensation? (gross/year)', type: 'text', options: [] }, 'European Union')).toBe('EUR 30,000');
+    expect(standingAnswer({ label: 'Expected CTC', type: 'text', options: [] }, 'Bengaluru, India')).toBeNull();
+  });
+  it('agrees to terms and declarations, not to marketing', () => {
+    expect(standingAnswer({ label: 'By applying for this job, I confirm I have read the Privacy Notice and consent to the processing of my data', type: 'checkbox', options: [] })).toBe('Yes');
+    expect(standingAnswer({ label: 'I declare that all information provided is correct to the best of my knowledge', type: 'checkbox', options: [] })).toBe('Yes');
+    expect(standingAnswer({ label: 'I agree to receive marketing emails', type: 'checkbox', options: [] })).toBeNull();
+  });
+});
+
+describe('more standing answers (2026-11-10)', () => {
+  const yn = (label: string) => ({ label, type: 'radio', options: ['Yes', 'No'] });
+  const P = { education: [{ institution: 'IIT Guwahati', degree: 'B.Tech', field_of_study: 'Civil Engineering' }] };
+  it('sponsorship for US visas; relocation Yes', () => {
+    expect(standingAnswer(yn('WILL YOU NOW OR IN THE FUTURE REQUIRE SPONSORSHIP FOR EMPLOYMENT VISA STATUS (E.G., H-1B, TN, E-3, F-1 VISA STATUS)?'))).toBe('Yes');
+    expect(standingAnswer(yn('Are you currently located in, or open to relocating to Barcelona?'), 'Spain')).toBe('Yes');
+    expect(standingAnswer(yn('Are you based in Barcelona or open to relocating?'), 'Spain')).toBe('Yes');
+  });
+  it("LinkedIn's School is your college", () => {
+    expect(standingAnswer({ label: 'School', type: 'text', options: [] }, '', P)).toBe('Indian Institute of Technology Guwahati');
+    expect(standingAnswer({ label: 'Degree', type: 'select', options: ['Master of Business Administration', 'Bachelor of Technology - BTech'] }, '', P)).toBe('Bachelor of Technology - BTech');
+    expect(standingAnswer({ label: 'Field of study', type: 'text', options: [] }, '', P)).toBe('Civil Engineering');
+    expect(standingAnswer({ label: 'High school name', type: 'text', options: [] }, '', P)).toBeNull();
+  });
+});
+
+describe('years of experience with a skill (2026-11-10)', () => {
+  it('is 5', () => {
+    expect(standingAnswer({ label: 'How many years of work experience do you have with REST APIs?', type: 'text', options: [] })).toBe('5');
+    expect(standingAnswer({ label: 'Years of experience in Product Management', type: 'select', options: ['0-2', '3-5', '6-8'] })).toBe('3-5');
+  });
+});
+
+describe('consent wording (2026-11-10)', () => {
+  it('ticks "You declare that you have read and agree to the privacy notice of SGS"', () => {
+    expect(standingAnswer({ label: 'You declare that you have read and agree to the privacy notice of SGS.*', type: 'checkbox', options: [] })).toBe('Yes');
+  });
+});

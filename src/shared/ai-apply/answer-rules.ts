@@ -703,10 +703,60 @@ export function noticePeriodStartDate(
   return `${yyyy}-${mm}-${dd}`;
 }
 
+// A link box that names a site ("Naukri URL", "GitHub URL", "Behance
+// profile") takes only a link to that site: never the portfolio or
+// LinkedIn in its place (seen on Lever/Meesho, 2026-11-10: the
+// portfolio went into "Naukri URL"). null when the label names no site.
+const LINK_SITES: Array<[RegExp, RegExp]> = [
+  // "Naukri URL" always stays blank (user, 2026-11-10): no answer fits it.
+  [/naukri/i, /(?!)/],
+  [/git\s*hub/i, /github\.com/i],
+  [/git\s*lab/i, /gitlab\.com/i],
+  [/twitter|\bx\s*(url|profile|handle)/i, /(twitter|x)\.com/i],
+  [/behance/i, /behance\.net/i],
+  [/dribbble/i, /dribbble\.com/i],
+  [/medium/i, /medium\.com/i],
+  [/stack\s*overflow/i, /stackoverflow\.com/i],
+  [/kaggle/i, /kaggle\.com/i],
+  [/leet\s*code/i, /leetcode\.com/i],
+  [/facebook/i, /facebook\.com/i],
+  [/instagram/i, /instagram\.com/i],
+  [/wellfound|angel\s*list/i, /(wellfound|angel)\.co/i],
+  [/linked\s*in/i, /linkedin\.com/i],
+];
+
+export function linkFitsLabel(label: string, answer: string): boolean | null {
+  if (!/\b(url|link|profile|handle|page)\b|naukri|github|linkedin|behance|dribbble|twitter/i.test(label)) return null;
+  const site = LINK_SITES.find(([named]) => named.test(label));
+  if (!site) return null;
+  return site[1].test(answer);
+}
+
+// "How soon can you join?" / "When can you join?": always tomorrow's
+// date (the user's standing instruction, 2026-11-10), whatever the
+// notice period says. Not a choice list: those keep the AI's pick.
+export function isJoinWhenQuestion(label: string): boolean {
+  return /how\s+soon\s+(can|could|will|would)\s+you\s+(join|start)|when\s+(can|could|will|would)\s+you\s+(join|start)|how\s+early\s+can\s+you\s+(join|start)|earliest\s+(date\s+)?(you\s+can\s+)?join/i.test(label);
+}
+
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** Tomorrow: ISO for a date input, "11 Nov 2026" (unambiguous) for a text box. */
+export function nextDayAnswer(fieldType: string, now = new Date()): string {
+  const d = new Date(now);
+  d.setDate(d.getDate() + 1);
+  const dd = String(d.getDate()).padStart(2, "0");
+  if (fieldType === "date") {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${dd}`;
+  }
+  return `${dd} ${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 export function verifyAndCorrectAnswers(
   fields: FormField[],
   answers: Answer[],
-  profile: CandidateProfile
+  profile: CandidateProfile,
+  now = new Date()
 ): Answer[] {
   const fieldById = new Map(
     fields.map(field => [field.id, field])
@@ -729,6 +779,20 @@ export function verifyAndCorrectAnswers(
     // NEEDS_USER_INPUT or an invalid value (e.g. the literal word
     // "Immediate" written into a date field), since there's nothing
     // genuinely ambiguous here once notice_period parses cleanly.
+    if (
+      isJoinWhenQuestion(field.label) &&
+      !field.options.length &&
+      ["text", "textarea", "date"].includes(field.type)
+    ) {
+      return {
+        ...answer,
+        answer: nextDayAnswer(field.type, now),
+        confidence: 1,
+        source: "profile",
+        needs_user_input: false
+      };
+    }
+
     if (
       field.type === "date" &&
       isStartDateField(field.label)
@@ -851,4 +915,72 @@ function techYearsAnswer(question: string, field: FormField): string | undefined
     ?? field.options.find((o) => { const [a, b] = nums(o); return a !== undefined && b !== undefined && a <= n && n <= b; })
     ?? field.options.find((o) => { const [a] = nums(o); return a !== undefined && a <= n && /\+|more|above|or more/i.test(o); });
   return pick;
+}
+
+// ------------------------------------------------------------------ your standing answers (user, 2026-11-10)
+
+const US = /united states|\busa?\b|america|california|new york|texas|washington|seattle|san francisco|boston|chicago|austin|,\s*(ca|ny|tx|wa|ma|il|nj|ga|co|fl|va|nc|pa)\b/i;
+const EUROPE = /europe|european union|\beu\b|germany|france|spain|italy|netherlands|portugal|poland|ireland|belgium|austria|sweden|denmark|finland|norway|switzerland|czech|romania|greece|hungary|croatia|estonia|latvia|lithuania|luxembourg|slovakia|slovenia|bulgaria|cyprus|malta|united kingdom|\buk\b|england|london|berlin|munich|paris|madrid|barcelona|amsterdam|lisbon|dublin|milan|rome|warsaw|prague|vienna|stockholm|copenhagen|zurich/i;
+const INDIA_RE = /\bindia\b|bengaluru|bangalore|mumbai|delhi|hyderabad|pune|chennai|gurugram|gurgaon|noida|kolkata/i;
+/** "us" | "europe" | "india" | "other" | "" (unknown) for a job location or a country named in a question. */
+export function regionOf(text: string): 'us' | 'europe' | 'india' | 'other' | '' {
+  if (!text.trim()) return '';
+  if (INDIA_RE.test(text)) return 'india';
+  if (US.test(text)) return 'us';
+  if (EUROPE.test(text)) return 'europe';
+  return 'other';
+}
+
+/**
+ * Answers you gave once for every application (user, 2026-11-10), over remembered or AI answers:
+ *  - work authorization: India only, no visa for any other country (so sponsorship is needed abroad);
+ *  - "current or former employee of <company>?": No;
+ *  - expected salary abroad: USD 30,000 in the US, EUR 30,000 in Europe;
+ *  - terms, privacy notice and data-processing consent: agreed; "all information is correct to my knowledge": ticked.
+ * `jobLocation` is the job's location ("" when unknown). Null: no standing answer for this question.
+ */
+export function standingAnswer(f: Pick<FormField, 'label' | 'type' | 'options'>, jobLocation = '', profile?: Pick<CandidateProfile, 'education'>): string | null {
+  const label = f.label;
+  const choice = ['radio', 'select', 'checkbox', 'combobox'].includes(f.type) || f.options.length > 0;
+  // A country the question names; a question naming none ("Will you require sponsorship?") goes by the job's.
+  const asked = regionOf(label);
+  const named = asked === 'other' ? '' : asked;
+  const job = regionOf(jobLocation);
+  const where = named || job;
+  if (/\b(current|former|previous|past|ex-?)\s*(or (former|previous|past)\s*)?(employee|employ|staff|contractor)|(ever|previously) (been )?(employed|worked) (by|for|at)|worked (for|at) .{1,60} (before|previously|in the past)/i.test(label)) {
+    return choice ? 'No' : 'No';
+  }
+  // No visa for any country: sponsorship is needed anywhere but India. US visa names (H-1B, TN, E-3, F-1) mean the US.
+  if (/sponsor/i.test(label)) return where === 'india' ? 'No' : where || /h-?1b|\bf-1\b|\be-3\b|\btn\b/i.test(label) ? 'Yes' : null;
+  // "How many years of experience do you have with REST APIs / <skill>?": 5 (user, 2026-11-10).
+  if (/how many years|years of (work |professional |hands-on )?experience|experience \(years\)|years.*experience (with|in|using)/i.test(label) && !/month|notice|gap/i.test(label)) {
+    if (!f.options.length) return '5';
+    return f.options.find((o) => /(^|\D)5(\D|$)/.test(o) && !/\b(15|25|50)\b/.test(o)) ?? f.options.find((o) => { const m = /(\d+)\s*(?:-|to|–)\s*(\d+)/.exec(o); return !!m && +m[1]! <= 5 && 5 <= +m[2]!; }) ?? null;
+  }
+  // "Are you currently located in, or open to relocating to …?": Yes.
+  if (choice && /open to relocat|willing to relocat|able to relocat|ready to relocat|relocat\w* to|currently (located|based) in .* or|based in .* or (open|willing)/i.test(label)) return 'Yes';
+  // LinkedIn's "School" is your college: IIT Guwahati, B.Tech, Civil Engineering.
+  const edu = profile?.education?.[0] as { institution?: string; degree?: string; field_of_study?: string } | undefined;
+  if (edu && !/high school|secondary|10th|12th/i.test(label)) {
+    const pick = (re: RegExp, text: string) => (f.options.length ? f.options.find((o) => re.test(o)) ?? null : text);
+    if (/^(school|college|university|institution)( name)?\s*\*?$|^name of (your )?(school|college|university|institution)/i.test(label.trim()) && edu.institution) {
+      return pick(/guwahati|iitg/i, /^iit\b/i.test(edu.institution) ? edu.institution.replace(/^iit\b/i, 'Indian Institute of Technology') : edu.institution);
+    }
+    if (/^degree\s*\*?$/i.test(label.trim()) && edu.degree) return pick(/bachelor of technology|b\.?\s?tech|bachelor/i, /b\.?\s?tech/i.test(edu.degree) ? 'Bachelor of Technology - BTech' : edu.degree);
+    if (/^(field of study|major|discipline|specialization)\s*\*?$/i.test(label.trim()) && edu.field_of_study) return pick(/civil/i, edu.field_of_study);
+  }
+  if (/authori[sz]ed to work|right to work|eligible to work|legally (allowed|permitted|able) to work|work authori[sz]ation|work permit/i.test(label) && choice) {
+    return where === 'india' ? 'Yes' : where ? 'No' : null;
+  }
+  if (/\b(hold|have) (a |an |any )?(valid )?(work )?visa\b|visa status/i.test(label) && choice && !/sponsor/i.test(label)) return 'No';
+  if (/\b(expected|desired|target)\b.*\b(salary|compensation|ctc|pay|package)\b|\b(salary|compensation) expectation/i.test(label) && !choice) {
+    if (job === 'us' || /\busd\b|\$|dollar/i.test(label)) return /\b(usd|in usd|\$|dollars?)\b/i.test(label) ? '30000' : 'USD 30,000';
+    if (job === 'europe' || /\beur|euro|€/i.test(label)) return /\b(eur|euros?|in euros?)\b|€/i.test(label) ? '30000' : 'EUR 30,000';
+    return null;
+  }
+  if (choice && /terms|privacy (notice|policy)|consent|gdpr|data (processing|protection|controller)|personal data|i (have read|agree|acknowledge|confirm|declare|certify)|(information|details|answers) (provided|given|submitted|above)? ?(is|are) (true|correct|accurate|complete)|best of my knowledge/i.test(label)
+    && !/marketing|newsletter|promotion|sms updates|whatsapp updates|job alerts/i.test(label)) {
+    return f.type === 'checkbox' && !f.options.length ? 'Yes' : (f.options.find((o) => /^(yes|i agree|agree|i accept|accept|i consent)/i.test(o)) ?? 'Yes');
+  }
+  return null;
 }

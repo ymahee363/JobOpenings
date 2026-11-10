@@ -317,3 +317,26 @@ describe('seed from job-apply-ai-mvp', () => {
     expect(patch.coverLetter?.name).toBe('cover.pdf');
   });
 });
+
+describe('how soon can you join', () => {
+  it("answers tomorrow's date over a remembered answer that is not a date (Lever, 2026-11-10)", async () => {
+    const memory = rememberAnswers({}, [{ label: 'How soon can you join us?', answer: '0 - 7 days' }], 1);
+    const now = new Date(2026, 10, 10, 12).getTime();
+    const built = await buildAnswers({ url: 'u', title: 't', page_text: '', fields: [f('j', 'How soon can you join us?✱', { type: 'textarea' })] },
+      { profile: DEFAULT_PROFILE, resume: null, memory, bank: [], now: () => now, generate: async () => ({ answers: [] }) } as never, '', false);
+    expect(built.answers.find((a) => a.field_id === 'j')?.answer).toBe('11 Nov 2026');
+  });
+});
+
+describe('site link boxes', () => {
+  it('never puts the portfolio into "Naukri URL" (Lever/Meesho, 2026-11-10)', async () => {
+    const fields = [f('n', 'Naukri URL', { required: false }), f('g', 'GitHub URL', { required: false }), f('p', 'Portfolio URL', { required: false })];
+    const built = await buildAnswers({ url: 'u', title: 't', page_text: '', fields },
+      { profile: { ...DEFAULT_PROFILE, portfolio: 'https://www.mahendrayadavpm.in/', custom_fields: [] }, resume: null, memory: {}, bank: [], now: () => 0,
+        generate: async (req: AnswerRequest) => req.fields.map((x) => ({ field_id: x.id, answer: 'https://www.mahendrayadavpm.in/', confidence: 0.9, source: 'llm', needs_user_input: false })) } as never, '', false);
+    const by = Object.fromEntries(built.answers.map((x) => [x.field_id, x.answer]));
+    expect(by.n).toBeUndefined();
+    expect(by.g).toBeUndefined();
+    expect(by.p).toBe('https://www.mahendrayadavpm.in/');
+  });
+});

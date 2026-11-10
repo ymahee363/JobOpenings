@@ -181,3 +181,22 @@ describe('the pre-submit review', () => {
     ]);
   });
 });
+
+describe('no work-history section on a Lever-style form (Meesho, 2026-11-10)', () => {
+  it('a long diversity notice naming "the company" plus "Current company" is not a work-history section', () => {
+    const notice = `As part of our commitment to creating a diverse and inclusive workplace, our company and organization ${'invites you to share how you identify. '.repeat(15)}`;
+    const answers = [ans('Current company ✱', 'NU10'), ans(notice, 'Male', { type: 'radio' }), ans('Total Years of Experience✱', '5+')];
+    expect(review(answers).findings.filter((f) => f.section === 'experience')).toEqual([]);
+  });
+});
+
+describe('contact check on LinkedIn (2026-11-10)', () => {
+  it('ignores a question that mentions "mobile" and an email list without your email', () => {
+    const r = review([
+      ans('Have you owned the product roadmap for a consumer mobile app that sells paid subscriptions?*', 'Yes', { type: 'radio', options: ['Yes', 'No'] }),
+      ans('Email address*', 'ymahee363@gmail.com', { type: 'select', options: ['ymahee363@gmail.com', 'info@startup201.com'] }),
+      ans('Mobile phone number*', '6264252896'),
+    ]);
+    expect(r.findings.filter((f) => f.section === 'contact')).toEqual([]);
+  });
+});

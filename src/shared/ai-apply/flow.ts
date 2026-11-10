@@ -19,13 +19,16 @@ import { detectAts } from '../ats/detect';
 import { runWorkdayApply } from '../ats/workday-flow';
 import { runKekaApply, runZohoApply } from '../ats/zoho-flow';
 import { isIndeedUrl, runIndeedApply } from '../ats/indeed-flow';
+import { runLeverApply } from '../ats/lever-flow';
+import { isNaukriJobUrl, runNaukriApply } from '../ats/naukri-flow';
+import { isLinkedinJobUrl, runLinkedinApply } from '../ats/linkedin-flow';
 import type { WorkdayPlan } from '../../content/ats/workday';
 import { findAnswer } from '../auto-apply/answers';
 import type { AnswerEntry } from '../auto-apply/config';
 import type { ApplyReport } from '../auto-apply/runner';
 import {
   directMapAnswer, educationEntryAnswer, enrichEntryFieldLabel, experienceEntryAnswer, findPendingQuestions, isAlreadyFilled,
-  isCoverLetterLabel, isResumeLabel, isValidAgainstOptions, pageFingerprint, verifyAndCorrectAnswers,
+  isCoverLetterLabel, isJoinWhenQuestion, standingAnswer, isResumeLabel, isValidAgainstOptions, linkFitsLabel, nextDayAnswer, pageFingerprint, verifyAndCorrectAnswers,
 } from './answer-rules';
 import { applyChoiceField, looksLikeApplicationForm, parseApplyChoice, type ApplyCandidate } from './apply-button';
 import { classifyField, directKindAnswer, normalizeForInput, withKindHint, type NormalizeContext } from './input-kinds';
@@ -265,10 +268,10 @@ export interface BuiltAnswers {
  * answers is remembered for the next form that asks the same question.
  */
 export async function buildAnswers(
-  data: FormData, deps: Pick<FlowDeps, 'profile' | 'resume' | 'memory' | 'bank' | 'generate' | 'now'> & Partial<Pick<FlowDeps, 'coverLetter'>>, instruction: string, includePageText: boolean,
+  data: FormData, deps: Pick<FlowDeps, 'profile' | 'resume' | 'memory' | 'bank' | 'generate' | 'now'> & Partial<Pick<FlowDeps, 'coverLetter'>> & { abroad?: boolean; jobLocation?: string }, instruction: string, includePageText: boolean,
 ): Promise<BuiltAnswers> {
   const { profile } = deps;
-  const kindCtx: NormalizeContext = { profile, today: new Date(deps.now()) };
+  const kindCtx: NormalizeContext = { profile, today: new Date(deps.now()), abroad: deps.abroad };
   const local: Answer[] = [];
   const forLLM: FormField[] = [];
   const counts = { existing: 0, direct: 0, bank: 0, memory: 0, llm: 0 };
@@ -384,8 +387,21 @@ export async function buildAnswers(
 
   const byId = new Map([...local, ...llm].map((a) => [a.field_id, a]));
   const answers = data.fields.map((f) => {
-    const a = byId.get(f.id);
+    // "How soon can you join?": tomorrow's date, over any remembered or AI answer (user, 2026-11-10).
+    const joinWhen = isJoinWhenQuestion(f.label) && !f.options.length && ['text', 'textarea', 'date'].includes(f.type);
+    // Your standing answers (work authorization India only, never their employee, salary abroad, terms agreed).
+    const standing = byId.get(f.id)?.source !== 'existing' ? standingAnswer(f, deps.jobLocation ?? '', profile) : null;
+    const a = joinWhen && byId.get(f.id)?.source !== 'existing'
+      ? { ...(byId.get(f.id) ?? { field_id: f.id }), answer: nextDayAnswer(f.type, new Date(deps.now())), confidence: 1, source: 'profile', needs_user_input: false } as Answer
+      : standing
+        ? { ...(byId.get(f.id) ?? { field_id: f.id }), answer: standing, confidence: 1, source: 'profile', needs_user_input: false } as Answer
+        : byId.get(f.id);
     if (!a) return a;
+    // A site's link box ("Naukri URL") with a link to another site (your portfolio): left empty, or yours to fill
+    // when required (user, 2026-11-10).
+    if (a.source !== 'existing' && a.answer && a.answer !== 'NEEDS_USER_INPUT' && linkFitsLabel(f.label, a.answer) === false) {
+      return f.required ? { ...a, answer: 'NEEDS_USER_INPUT', needs_user_input: true, confidence: 0, source: `${a.source}:wrong-site-link` } : undefined;
+    }
     const fitted = fitToOptions(f, a.answer);
     const picked = fitted && fitted !== a.answer ? { ...a, answer: fitted } : a;
     // The input-type agent: the answer in the exact shape this control keeps (a time as HH:MM, a number within the
@@ -411,6 +427,17 @@ async function platformApplier(deps: FlowDeps, opts: FlowOptions): Promise<Apply
     // A company-site job: the general flow follows Indeed's link to the company page.
     if (r.result !== 'external') return r;
   }
+  // LinkedIn Easy Apply: its own applier. Company-site jobs are not applied to from LinkedIn (user, 2026-11-10).
+  if (isLinkedinJobUrl(url)) {
+    deps.status?.('LinkedIn: using the LinkedIn Easy Apply applier');
+    return runLinkedinApply(deps, opts.mode, { title: opts.job.title, company: opts.job.company }, url);
+  }
+  // Naukri's own Apply and its chatbot questions: its own applier. Company-site jobs go the general way.
+  if (isNaukriJobUrl(url)) {
+    deps.status?.('Naukri: using the Naukri applier');
+    const r = await runNaukriApply(deps, opts.mode, { title: opts.job.title, company: opts.job.company });
+    if (r.result !== 'external') return r;
+  }
   if (!deps.workdayPlan) return null;
   const ats = detectAts(url);
   if (ats === 'workday') {
@@ -427,6 +454,10 @@ async function platformApplier(deps: FlowDeps, opts: FlowOptions): Promise<Apply
   if (zoho) {
     deps.status?.('Zoho Recruit site: using the Zoho Recruit applier');
     return runZohoApply(deps, opts.mode, deps.workdayPlan, url, { title: opts.job.title, company: opts.job.company });
+  }
+  if (ats === 'lever') {
+    deps.status?.('Lever site: using the Lever applier');
+    return runLeverApply(deps, opts.mode, deps.workdayPlan, url, { title: opts.job.title, company: opts.job.company });
   }
   if (ats === 'keka') {
     deps.status?.('Keka site: using the Keka applier');
@@ -492,6 +523,14 @@ interface FixMemory {
 
 function newFixMemory(given: Answer[]): FixMemory {
   return { current: new Map(given.map((a) => [a.field_id, a.answer])), tried: new Map(), fixedFor: new Map() };
+}
+
+/**
+ * The error-fix agent for a platform applier (LinkedIn): fix what the page rejected on this step ("Enter a decimal
+ * number" for "Rs.2700000" → 2700000), mechanically first, else the AI with the error. Returns the errors left.
+ */
+export async function fixPageErrors(deps: FlowDeps, data: FrameFormData, given: Answer[]): Promise<ErrorList> {
+  return autoFixErrors(deps, data, '', newFixMemory(given));
 }
 
 async function autoFixErrors(deps: FlowDeps, data: FrameFormData, instruction: string, mem: FixMemory): Promise<ErrorList> {
@@ -708,16 +747,16 @@ async function userActivityCount(deps: FlowDeps): Promise<number> {
  * restarts the wait: Submit is pressed 30 s after your last change. Returns a reason to stop (the kill switch, or the
  * site already confirmed because you submitted yourself), or null to go ahead.
  */
-export async function waitBeforeSubmit(deps: FlowDeps, say: (t: string) => void): Promise<string | null> {
+export async function waitBeforeSubmit(deps: FlowDeps, say: (t: string) => void, waitMs = SUBMIT_WAIT_MS): Promise<string | null> {
   let seen = await userActivityCount(deps);
-  let until = deps.now() + SUBMIT_WAIT_MS;
-  say(`Submitting in ${Math.round(SUBMIT_WAIT_MS / 1000)} s; change anything on the page and I wait 30 s after your last change`);
+  let until = deps.now() + waitMs;
+  say(`Submitting in ${Math.round(waitMs / 1000)} s; change anything on the page and I wait ${Math.round(waitMs / 1000)} s after your last change`);
   while (deps.now() < until) {
     await deps.sleep(1_000);
     const count = await userActivityCount(deps);
     if (count !== seen) {
       seen = count;
-      until = deps.now() + SUBMIT_WAIT_MS;
+      until = deps.now() + waitMs;
       say('You changed something: submitting 30 s after your last change');
     }
     if ((await signals(deps)).confirmed) return 'submitted';

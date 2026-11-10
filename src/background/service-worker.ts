@@ -10,7 +10,7 @@ import { seedPatch, type AiSeed } from '../shared/ai-apply/seed';
 import { normalizeLabel, rememberAnswers } from '../shared/ai-apply/memory';
 import { isProductTitle } from '../shared/board';
 import { applyEverywhere, normalizeAgentConfig } from '../shared/auto-apply/config';
-import { AGENT_SITES, confirmedJobIds, jobPageOf, SITE_PAGES, type AgentSite } from '../shared/auto-apply/job-page';
+import { AGENT_SITES, confirmedJobIds, jobPageOf, naukriApplyResult, SITE_PAGES, type AgentSite } from '../shared/auto-apply/job-page';
 import { buildQueue, explainEmptyQueue } from '../shared/auto-apply/match';
 import { cappedSites, hoursLabel, inAgentHours, planNextRun, staleAttempts, startOfDay, summarize } from '../shared/auto-apply/pacing';
 import { runOnce, type ApplyReport, type ApplyRequest, type NoRunReason, type RunDeps } from '../shared/auto-apply/runner';
@@ -1237,8 +1237,12 @@ chrome.tabs.onUpdated.addListener((tabId, change) => {
     return;
   }
   if (!change.url) return;
-  if (confirmedJobIds(change.url).includes(run.jobId)) {
-    run.resolve({ ...agentFail('applied', `${new URL(change.url).hostname.replace(/^www\./, '')} confirmed: application submitted`), clicked: true });
+  // Naukri opens its confirmation page on failure too: only its 200 for this job is "applied", and its message is kept.
+  const naukri = naukriApplyResult(change.url, run.jobId);
+  if (naukri.status === 'failed') {
+    run.resolve({ ...agentFail('error', naukri.message), clicked: true });
+  } else if (confirmedJobIds(change.url).includes(run.jobId)) {
+    run.resolve({ ...agentFail('applied', naukri.status === 'applied' ? naukri.message : `${new URL(change.url).hostname.replace(/^www\./, '')} confirmed: application submitted`), clicked: true });
   } else if (jobPageOf(change.url)?.jobId !== run.jobId || run.clicked) {
     // Left this job's page, to another page or another job, or reloaded it after Apply: check by reopening the job.
     run.resolve({ ...agentFail('no_confirmation', `page moved to ${new URL(change.url).pathname} after Apply`), clicked: run.clicked || jobPageOf(change.url)?.jobId !== run.jobId });

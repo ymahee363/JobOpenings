@@ -6,6 +6,7 @@
  * as a one-field page and "Save" as its Next button, so the AI apply flow answers them one by one.
  */
 import type { FormData, FormField } from '../shared/ai-apply/types';
+import { naukriApplyResult } from '../shared/auto-apply/job-page';
 
 const FIELD_ID = 'naukri-chat-answer';
 const GREETING = /thank you for showing interest|kindly answer all the recruiter/i;
@@ -112,8 +113,11 @@ export function naukriApplied(): boolean {
   if (!/(^|\.)naukri\.com$/.test(location.hostname)) return false;
   // After the last chatbot answer Naukri opens its "Apply Confirmation" page (/myapply/saveApply, seen live
   // 2026-11-04), reading 'Applied to "<job title>"'.
-  if (location.pathname.startsWith('/myapply/saveApply') || /^apply confirmation/i.test(document.title)) return true;
-  if (/applied to "/i.test(document.body?.innerText.slice(0, 2000) ?? '')) return true;
+  // Naukri opens the same page when an apply fails, so only its response code for the job counts (2026-11-10).
+  if (location.pathname.startsWith('/myapply/saveApply')) return naukriApplyResult(location.href).status === 'applied';
+  // Naukri's own "Applied" in place of the Apply button.
   if (shown(document.querySelector('#already-applied'))) return true;
-  return /applied successfully|successfully applied|you have applied/i.test(document.body?.innerText.slice(0, 5000) ?? '');
+  // The chatbot's or a toast's own success line; never page-wide text ("Jobs you have applied to" is a menu link).
+  const toast = [...document.querySelectorAll<HTMLElement>('.chatbot_Drawer, [class*="toast" i], [role="alert"]')].filter(shown).map((e) => e.innerText).join(' ');
+  return /applied successfully|successfully applied/i.test(toast);
 }

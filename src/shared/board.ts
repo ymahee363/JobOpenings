@@ -1,3 +1,4 @@
+import { isForeignOnsite } from './foreign';
 /** Pure board logic: building rows, filtering, sorting and stats. */
 import type { ApplyType, Job, JobStatus, Site, Status } from './types';
 import type { Attempt } from './auto-apply/config';
@@ -109,6 +110,8 @@ function terms(csv: string): string[] {
 }
 
 export function matchesFilters(row: BoardRow, f: Filters, now: number): boolean {
+  // Foreign jobs only when remote (user, 2026-11-10).
+  if (isForeignOnsite(row.location)) return false;
   if (f.sites.length && !f.sites.includes(row.site)) return false;
   if (f.ats?.length && !(row.ats && f.ats.includes(row.ats))) return false;
   if (f.postedWithinDays !== null && now - row.postedAt > f.postedWithinDays * DAY) return false;

@@ -1,3 +1,4 @@
+import { isForeignOnsite } from '../foreign';
 /** Which iimjobs jobs the agent applies to, and in what order (PRD-auto-apply AR-1, AR-2, AR-3, AR-14, AR-16). */
 import { SITE_LABEL, titleHasHiddenWord } from '../board';
 import type { Job, JobStatus } from '../types';
@@ -29,6 +30,7 @@ export function eligibility(
   const s = status?.status ?? 'new';
   if (s === 'applied') return 'already applied';
   if (s === 'dismissed') return 'dismissed';
+  if (isForeignOnsite(job.location)) return 'outside India and not remote';
   if (appliedBefore) return 'applied before (repost)';
   if (now - job.postedAt > rules.maxPostedDays * DAY) return `posted more than ${rules.maxPostedDays} days ago`;
   return null;
@@ -200,6 +202,7 @@ export function explainEmptyQueue(
   const historyOf = new Map<string, Attempt[]>();
   for (const a of attempts) historyOf.set(a.jobId, [...(historyOf.get(a.jobId) ?? []), a]);
   const reasons = new Map<string, number>();
+  const bySite = new Map<string, Map<string, number>>();
   const capped = new Set(cappedSites(config.sites, config.dailyCap, attempts, now));
   for (const job of onSites) {
     const status = statusOf.get(job.jobId);
@@ -212,9 +215,16 @@ export function explainEmptyQueue(
     const key = reason.replace(/^experience .*/, 'needs more experience than yours').replace(/^location .*/, 'location not in your list')
       .replace(/^salary .*/, 'salary below your floor').replace(/^company blocked .*/, 'company on your blocklist').replace(/^title has ".*"/, 'title has an excluded word');
     reasons.set(key, (reasons.get(key) ?? 0) + 1);
+    // Per platform, the jobs found in the last 2 days: why the new ones did not go in (2026-11-10).
+    if (now - (job.firstSeenAt ?? job.postedAt) < 2 * DAY) {
+      const m = bySite.get(job.site) ?? new Map<string, number>();
+      m.set(key, (m.get(key) ?? 0) + 1);
+      bySite.set(job.site, m);
+    }
   }
   const top = [...reasons.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([r, n]) => `${r} (${n})`).join(', ');
-  return `No matching job among ${onSites.length} ${names} jobs. Most common reasons: ${top}`;
+  const fresh = [...bySite.entries()].map(([site, m]) => `${SITE_LABEL[site as Job['site']]}: ${[...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([r, n]) => `${r} (${n})`).join(', ')}`).join(' · ');
+  return `No matching job among ${onSites.length} ${names} jobs. Most common reasons: ${top}${fresh ? `. New jobs (last 2 days): ${fresh}` : ''}`;
 }
 
 /**

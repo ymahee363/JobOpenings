@@ -17,19 +17,19 @@ import { buildWorkdayPlan } from '../src/shared/ats/workday-plan';
 
 type Send = (msg: Record<string, unknown>) => Promise<unknown>;
 
-(window as unknown as { __qaRun: unknown }).__qaRun = async (opts: { backend: string; mode?: 'fill' | 'submit'; firstAnswers?: Record<string, string>; account?: { email: string; password: string } }) => {
+(window as unknown as { __qaRun: unknown }).__qaRun = async (opts: { backend: string; mode?: 'fill' | 'submit'; firstAnswers?: Record<string, string>; resumeText?: string; profile?: FlowDeps['profile']; resume?: FlowDeps['resume']; memory?: FlowDeps['memory']; account?: { email: string; password: string } }) => {
   const send = (window as unknown as { __send: Send }).__send;
   const log: string[] = [];
   const aiFields: string[][] = [];
   const generate = backendClient({ url: opts.backend, accessKey: '' }, { onWait: (ms, why) => log.push(`waiting ${Math.round(ms / 1000)} s: ${why}`) });
-  const resumeFile = { name: 'resume.pdf', type: 'application/pdf', data: btoa('%PDF-1.4 QA test resume'), text: '' };
+  const resumeFile = opts.resume ?? { name: 'resume.pdf', type: 'application/pdf', data: btoa('%PDF-1.4 QA test resume'), text: opts.resumeText ?? '' };
   const deps: FlowDeps = {
     frames: async () => [0],
     send: (_frame, msg) => send(msg),
     sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
     now: () => Date.now(),
     // Your links (as in the golden tests' profile), so the pre-submit check has links to compare.
-    profile: {
+    profile: opts.profile ? { ...DEFAULT_PROFILE, ...opts.profile } : {
       ...DEFAULT_PROFILE, phone: '+91 62642 52896', location: 'Bangalore, India',
       linkedin: 'https://www.linkedin.com/in/mahendra-yadav/', portfolio: 'https://www.mahendrayadavpm.in/',
       custom_fields: [{ id: '1', name: 'Github', value: 'https://github.com/ymahee363' }],
@@ -37,7 +37,7 @@ type Send = (msg: Record<string, unknown>) => Promise<unknown>;
     resume: resumeFile,
     // The platform appliers (Workday, Zoho Recruit) take the page address and the plan built from the profile.
     currentUrl: async () => location.href,
-    memory: {}, bank: [], saveMemory: async () => {}, mayClick: async () => null,
+    memory: opts.memory ?? {}, bank: [], saveMemory: async () => {}, mayClick: async () => null,
     // Test credentials for the local account test site only (tests/fixtures/forms/account-form.html).
     account: opts.account ?? null,
     // A real click is asked for: post where, and wait for a genuine (isTrusted) click there, made by the QA tool.

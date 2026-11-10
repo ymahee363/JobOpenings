@@ -218,6 +218,28 @@ export const NAUKRI_APPLIED_PATH = SITE_PAGES.naukri.appliedPath!;
  *  - Naukri: `/myapply/saveApply?strJobsarr=[<id>]&applytype=single&…&multiApplyResp={"<id>":200}` (title "Apply
  *    Confirmation", text `Applied to "<title>"`). Only IDs whose response code is 200 count.
  */
+/**
+ * Naukri's answer on its "Apply Confirmation" page (/myapply/saveApply?…&multiApplyResp={"<jobId>":<code>}&jobTitle=…):
+ * 'applied' only when this job's code is 200 (any 200 when `jobId` is not given); 'failed' when the page lists the job
+ * (or any job) with another code; 'none' off that page. Naukri opens the same page when an apply fails, so the page
+ * alone is never proof (user, 2026-11-10: failed jobs were moving to Applied). `message` is what the agent records.
+ */
+export function naukriApplyResult(raw: string, jobId?: string): { status: 'applied' | 'failed' | 'none'; message: string } {
+  try {
+    const url = new URL(raw);
+    if (url.hostname !== 'www.naukri.com' || url.pathname.replace(/\/$/, '') !== NAUKRI_APPLIED_PATH) return { status: 'none', message: '' };
+    const resp = JSON.parse(url.searchParams.get('multiApplyResp') ?? '{}') as Record<string, unknown>;
+    const codes = Object.entries(resp).filter(([id]) => /^\d{6,}$/.test(id) && (!jobId || id === jobId));
+    const title = url.searchParams.get('jobTitle') ?? '';
+    const ok = codes.find(([, code]) => Number(code) === 200);
+    if (ok) return { status: 'applied', message: `Naukri: Applied to "${title || 'the job'}" (response ${ok[1]} for job ${ok[0]})` };
+    const shown = codes.map(([id, code]) => `${id}: ${String(code)}`).join(', ') || 'no response for this job';
+    return { status: 'failed', message: `Naukri did not apply (${shown})` };
+  } catch {
+    return { status: 'none', message: '' };
+  }
+}
+
 export function confirmedJobIds(raw: string): string[] {
   try {
     const url = new URL(raw);

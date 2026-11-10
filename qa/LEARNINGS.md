@@ -8,8 +8,17 @@ What each QA run learned about the sites and application forms. Read before test
   (fixed 2026-11-04 in `flow.ts` step 0, "let the page settle").
 - Re-check: iimjobs one-click apply through AI apply must end "applied", not "no application form" (fixed
   2026-11-04: `appliedButtonShown()` in `form-engine.ts`, and the post-Apply poll in `flow.ts`).
+- Lever (2026-11-10): on `/apply` pages the flow sends no job description to the AI (the page has only the title),
+  so "What excites you about <company>?" comes back NEEDS_USER_INPUT. Suggested fix: send the posting page's text
+  (URL without `/apply`, `.posting-page` / `.section-wrapper`) with the questions in `lever-flow.ts`.
+- Lever (2026-11-10, Low): if the AI backend cannot be reached, `buildAnswers` throws out of `runLeverApply`
+  (`TypeError: Failed to fetch`) instead of ending `needs_me`.
 
 ## Resolved
+
+- Lever "Current location" was typed but no suggestion picked (`selectedLocation` empty) while `lvFill` reported
+  success. Fixed 2026-11-10 in `src/content/ats/lever.ts` `setLocation`: dispatch `keydown` (Lever searches on
+  keydown), and report success only when a suggestion is picked.
 
 - 2026-11-04: Naukri, Instahyre and Wellfound apply reports were dropped by the service worker (only iimjobs was
   accepted), so every one-click apply there ended "no report from the job page".
@@ -114,3 +123,31 @@ What each QA run learned about the sites and application forms. Read before test
 - My Information requires Address Line 2 and State (formField-countryRegion dropdown) — GSK does not.
 - formField-phoneNumber contains the country-code search box before the number box: target input[name=phoneNumber].
 - Fields now filled by label meaning (fillBySemantics) and a retry pass runs after Workday errors.
+
+### Lever (jobs.lever.co, e.g. Fam `fampay/b11c81ce-…/apply`), 2026-11-10: dedicated applier dry run
+
+- Known-good URL (open 2026-11-10): https://jobs.lever.co/fampay/b11c81ce-fe5c-4eb6-a3e1-d268dd3ad926/apply
+  (Product Manager; 20 fields, 16 required; 9 required `cards[<id>][field0..8]` questions: 7 textareas + 1 text +
+  CTC textareas).
+- How it was tested: no Claude in Chrome connection, so headless Chrome (fresh temp profile) over CDP with
+  `Page.setBypassCSP` and Private Network Access features disabled (else the page cannot reach the local backend at
+  127.0.0.1:8000: `Failed to fetch`). Engine (`dist/form-engine.js`) and `qa/harness.js` evaluated in the page;
+  `__qaRun({ mode: 'fill', resumeText })`. `#btn-submit` click and form submit were trapped; never pressed.
+- `LV_STATE` on `/apply`: `page: 'form'`. Lever's resume parse ("Couldn't auto-read resume.") fails on the harness's
+  fake PDF; basics are still filled from the profile afterwards.
+- Location: `retrieveLocations.js` searches `/searchLocations?text=` on **keydown** (debounced), not input/keyup.
+  Suggestions are `.dropdown-results > .dropdown-location#location-N`; a **mousedown** on one sets the box and the
+  hidden `#selected-location` (JSON `{name,id}`). Its blur handler clears the box and the hidden value if the dropdown
+  is still open, so pick before moving focus.
+- The AI needs resume text: with `resume_text: ''` every experience question comes back `source: missing`.
+  `scripts/qa-harness.ts` now takes `resumeText` (pass the text of the person's resume PDF via `pdftotext`).
+- With resume text: 7 of 9 required questions answered (key metric, product shipped, data insight, top metrics,
+  joining time, current and expected CTC); NEEDS_USER_INPUT for "What excites you about Fam?" (no job description
+  on `/apply`) and "one consumer product you love" (personal opinion). Flow ends `needs_me` listing those two.
+- Submit: `#btn-submit` runs invisible hCaptcha first; not exercised.
+- Lever (2026-11-10 re-run): the /apply page has no job description; `LV_POSTING` fetches the posting page (same
+  origin) so "why us" questions get answered. Personal-opinion questions stay NEEDS_USER_INPUT by design.
+- Lever submit (2026-11-10, FamPay, real): success = navigation to `…/thanks` + "Application submitted!"; the
+  navigation kills the in-page LV_SUBMIT reply, so confirm by URL. No hCaptcha challenge on a normal submit.
+- Naukri applier (2026-11-10): Easy Apply can apply in one click with no questions → /myapply/saveApply with
+  `multiApplyResp {"<jobId>":200}`, 'Applied to "<title>"'. The navigation ends the in-page reply; confirm by URL.

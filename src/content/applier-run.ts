@@ -285,7 +285,8 @@ export async function runApply(msg: ApplyRunMessage, t: Timing = DEFAULT_TIMING,
     }, t.confirmWaitMs, t.pollMs);
     const base = { clicked: true, dialogs, answers };
     if (!after) return report('no_confirmation', { ...base, reason: 'no "Applied" after pressing Apply' });
-    if (after.v === 'applied') return report('applied', base);
+    // Keep what the site said, so the agent's log shows the success message (user, 2026-11-10).
+    if (after.v === 'applied') return report('applied', { ...base, reason: `the site shows "${(after.s.applyButtons.find((b) => /applied|sent|submitted/i.test(b.text))?.text ?? 'Applied').trim().slice(0, 80)}"` });
     if (after.v === 'captcha') return report('captcha', base);
     if (after.v === 'closed') return report('closed', { ...base, reason: 'job closed after pressing Apply' });
 

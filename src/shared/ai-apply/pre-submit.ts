@@ -319,6 +319,12 @@ export function reviewBeforeSubmit(input: ReviewInput): Review {
   for (const a of answers) {
     for (const [re, want, same] of contact) {
       if (!want || !re.test(a.field.label) || a.field.entry_type) continue;
+      // A contact box has a short label; a question that merely mentions one ("…a consumer mobile app…?") is not
+      // one (LinkedIn, 2026-11-10).
+      if (a.field.label.length > 40 || /\?/.test(a.field.label)) continue;
+      // A drop-down that does not offer your value (LinkedIn's email list holds only the account's verified emails)
+      // cannot be changed: not a finding.
+      if (a.field.options?.length && !a.field.options.some((o) => same(o))) continue;
       const v = valueOf(a);
       if (!v) continue;
       if (same(v)) contactOk += 1;
@@ -329,7 +335,7 @@ export function reviewBeforeSubmit(input: ReviewInput): Review {
 
   // ---------- work experience
   const expFields = answers.filter((a) => a.field.entry_type === 'experience' || /\b(company|employer|organi[sz]ation)\b/i.test(a.field.label) && !/\b(apply|applying|hear|current company you|why)\b/i.test(a.field.label));
-  const hasExperienceSection = answers.some((a) => a.field.entry_type === 'experience') || expFields.filter((a) => /\b(company|employer)\b/i.test(a.field.label)).length >= 2 || (!!input.reviewPage && /work experience|employment history|work history/i.test(pageText));
+  const hasExperienceSection = answers.some((a) => a.field.entry_type === 'experience') || expFields.filter((a) => a.field.label.length <= 80 && /\b(company|employer)\b/i.test(a.field.label)).length >= 2 || (!!input.reviewPage && /work experience|employment history|work history/i.test(pageText));
   if (hasExperienceSection && resumeCompanies.length) {
     // Only the experience section itself counts: a company named in a cover letter is not a work-experience entry
     // (seen live: Dresma's block was missing but the letter named Dresma, and the form went through).

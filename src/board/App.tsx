@@ -146,7 +146,13 @@ export function App() {
   const extra = useMemo(() => extraDetailsFrom(data.attempts), [data.attempts]);
   const rows = useMemo(() => buildRows(jobs, statuses, lastVisitAt, now, extra, overrides), [jobs, statuses, lastVisitAt, now, extra, overrides]);
   const visible = useMemo(() => rowsForTab(rows, tab, filters, now, hiddenTitleWords), [rows, tab, filters, now, hiddenTitleWords]);
-  const atsChips = useMemo(() => atsCounts(rows, tab, filters, now, hiddenTitleWords), [rows, tab, filters, now, hiddenTitleWords]);
+  // A ticked ATS stays on show even when this tab has none of its jobs, so a filter is never on and out of sight
+  // (user, 2026-11-10: "Greenhouse" hid every job on Easy Apply, with no chip to untick).
+  const atsChips = useMemo(() => {
+    const found = atsCounts(rows, tab, filters, now, hiddenTitleWords);
+    const missing = (filters.ats ?? []).filter((a) => !found.some((c) => c.ats === a)).map((ats) => ({ ats, count: 0 }));
+    return [...missing, ...found];
+  }, [rows, tab, filters, now, hiddenTitleWords]);
   const counts = useMemo(() => {
     const out = {} as Record<BoardTab, { total: number; fresh: number }>;
     for (const t of TABS) {
@@ -474,7 +480,10 @@ export function App() {
               <button type="button" className="btn" onClick={() => openTab(INDEED_HOME_URL)}>Open Indeed</button>
             </div>
           ) : visible.length === 0 ? (
-            <p className="empty">Nothing here with these filters.</p>
+            <div className="empty">
+              <p>Nothing here with these filters{filters.ats?.length ? ` (ATS: ${filters.ats.join(', ')})` : ''}.</p>
+              <button type="button" className="btn" onClick={() => setFilters({ ...filters, sites: [], ats: [], location: '', keywordsInclude: '', postedWithinDays: null, expYears: null, salaryFloorLpa: null })}>Clear filters</button>
+            </div>
           ) : (
             <div className="list">
               {visible.map((row, i) => (

@@ -32,6 +32,21 @@ http.createServer((req, res) => {
     });
     return undefined;
   }
+  // Your profile, resume and saved answers (seed/ai-seed.json) for a live in-page run: personal, so only at a one-time
+  // secret path (QA_SEED_TOKEN, unset = never served) and only to the page origin in QA_SEED_ORIGIN.
+  const seedToken = process.env.QA_SEED_TOKEN;
+  if (seedToken && req.url === `/seed/${seedToken}.json`) {
+    const allowed = process.env.QA_SEED_ORIGIN || 'https://www.naukri.com';
+    if (req.headers.origin !== allowed) {
+      res.statusCode = 403;
+      res.end('origin not allowed');
+      return undefined;
+    }
+    res.setHeader('Access-Control-Allow-Origin', allowed);
+    res.setHeader('Content-Type', 'application/json');
+    res.end(fs.readFileSync(path.join(__dirname, '..', 'seed', 'ai-seed.json')));
+    return undefined;
+  }
   // The AI apply flow for in-page runs (scripts/qa-harness.ts, built to qa/harness.js).
   if (req.url === '/harness.js') {
     try {

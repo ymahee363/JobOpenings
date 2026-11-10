@@ -50,7 +50,7 @@ export function detectAts(url: string | undefined | null): Ats {
 }
 
 /** Platforms with a dedicated applier. Others are applied to with the general flow. */
-export const DEDICATED_ATS: Ats[] = ['workday', 'zoho', 'keka'];
+export const DEDICATED_ATS: Ats[] = ['workday', 'zoho', 'keka', 'lever'];
 
 export function hasDedicatedApplier(ats: Ats): boolean {
   return DEDICATED_ATS.includes(ats);

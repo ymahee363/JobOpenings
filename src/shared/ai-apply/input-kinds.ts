@@ -308,6 +308,8 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 export interface NormalizeContext {
   profile: CandidateProfile;
   today: Date;
+  /** The job is outside India: a mobile box without its own code picker gets your code, "+91 …" (user, 2026-11-10). */
+  abroad?: boolean;
 }
 
 export interface Normalized {
@@ -429,12 +431,14 @@ export function normalizeForInput(f: FormField, answer: string, ctx: NormalizeCo
       // A separate country-code picker, or a box sized for a national number: no code in the number.
       const max = toNum(f.max_length);
       if (f.has_code_picker || (max !== undefined && max <= 10)) return ok(national);
+      if (ctx.abroad) return ok(`+${dial} ${national}`);
       // A box that shows "+" in its example wants the code.
       if (/\+/.test(f.placeholder ?? '')) return ok(`+${dial} ${national}`);
       return ok(a.startsWith('+') ? a : national);
     }
     case 'phone_code': {
-      const dial = /^\+?\d{1,3}$/.test(a.replace(/\s/g, '')) ? a.replace(/[\s+]/g, '') : profileDialCode(ctx.profile);
+      // Always your own code (+91), whatever the job's country or a remembered answer says (user, 2026-11-10).
+      const dial = profileDialCode(ctx.profile);
       if (!f.options.length) return ok(`+${dial}`);
       const re = new RegExp(`(^|[^\\d])\\+?\\s?${dial}(?!\\d)`);
       // "+1" is shared (US, Canada): prefer the option naming the country in your location.

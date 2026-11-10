@@ -165,3 +165,13 @@ describe('answers from the kind alone, and hints for the AI', () => {
     expect(kindHint(f('Why us?', 'textarea'))).toBeUndefined();
   });
 });
+
+describe('mobile number on a job outside India (2026-11-10)', () => {
+  it('writes +91 in a mobile box with no code picker; keeps the picker at +91', () => {
+    const abroad = { ...ctx, profile: { ...ctx.profile, phone: '6264252896' }, abroad: true };
+    expect(normalizeForInput(f('Mobile phone number', 'tel'), '6264252896', abroad).value).toBe('+91 6264252896');
+    expect(normalizeForInput(f('Mobile phone number', 'tel', { has_code_picker: true }), '6264252896', abroad).value).toBe('6264252896');
+    expect(normalizeForInput(f('Phone country code', 'select', { options: ['United States (+1)', 'India (+91)'] }), '+1', { ...abroad }).value).toBe('India (+91)');
+    expect(directKindAnswer(f('Phone country code', 'select', { options: ['United States (+1)', 'India (+91)'] }), abroad)).toBe('India (+91)');
+  });
+});

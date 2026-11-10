@@ -135,3 +135,22 @@ describe('AI usage limits', () => {
     expect(r).toMatchObject({ result: 'limit', retryAt: 123_000 });
   });
 });
+
+import { planFix as planFixLi } from '../src/shared/ai-apply/error-fix';
+import { DEFAULT_PROFILE as P0 } from '../src/shared/ai-apply/profile';
+describe('LinkedIn number errors (2026-11-10)', () => {
+  it('"Rs.2700000" rejected as not a decimal number becomes 2700000', () => {
+    const f = { id: 'x', label: 'What is your current usual charges?', type: 'text', required: true, options: [], current_value: 'Rs.2700000' };
+    const ctx = { profile: P0, today: new Date('2026-11-10') };
+    expect(planFixLi(f, 'Enter a decimal number larger than 0.0', 'Rs.2700000', new Set(['Rs.2700000']), ctx)).toMatchObject({ action: 'set', answer: '2700000' });
+    expect(planFixLi(f, 'Enter a whole number between 0 and 99', '5 years', new Set(['5 years']), ctx)).toMatchObject({ action: 'set', answer: '5' });
+  });
+});
+
+describe('LinkedIn "Invalid input" (2026-11-10)', () => {
+  it('turns "Rs.2700000" into 2700000 for a charges box', () => {
+    const f = { id: 'x', label: 'What is your current usual charges?', type: 'text', required: true, options: [], current_value: 'Rs.2700000' };
+    const ctx = { profile: P0, today: new Date('2026-11-10') };
+    expect(planFixLi(f, 'Invalid input', 'Rs.2700000', new Set(['Rs.2700000']), ctx)).toMatchObject({ action: 'set', answer: '2700000' });
+  });
+});

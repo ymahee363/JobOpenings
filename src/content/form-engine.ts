@@ -42,6 +42,9 @@ import { handleWorkdayMessage } from './ats/workday';
 import { handleZohoMessage } from './ats/zoho';
 import { handleKekaMessage } from './ats/keka';
 import { handleIndeedMessage } from './ats/indeed';
+import { handleLeverMessage } from './ats/lever';
+import { handleNaukriMessage } from './ats/naukri';
+import { handleLinkedinMessage } from './ats/linkedin';
 import { accountStep, watchAfterPress } from './account';
 import { isSideFormContext, pickClearApplyCandidate, scoreApplyCandidate, type ApplyCandidate } from '../shared/ai-apply/apply-button';
 import { naukriApplied, naukriChatFill, naukriChatForm, naukriChatRoot, naukriChatSave } from './naukri-chat';
@@ -524,7 +527,26 @@ function getLabel(el: HTMLElement): string {
 function getInputLabel(
   input: HTMLInputElement
 ): string {
-  return getLabel(input);
+  const label = getLabel(input);
+  // LinkedIn Easy Apply (2026-11-10): every radio of a group has the QUESTION as its aria-label, an empty
+  // <label>, value "on", and its option ("Yes" / "No") in a sibling <p>. Read the option from the radio's own row
+  // when the label is empty or shared by the whole group.
+  if ((input.type === "radio" || input.type === "checkbox") && input.name) {
+    const group = Array.from(
+      ownerRoot(input).querySelectorAll<HTMLInputElement>(
+        `input[type="${cssString(input.type)}"][name="${cssString(input.name)}"]`
+      )
+    );
+    if (group.length > 1 && (!label || group.every(other => other === input || getLabel(other) === label))) {
+      let row: HTMLElement = input;
+      while (row.parentElement && !group.some(other => other !== input && row.parentElement!.contains(other))) {
+        row = row.parentElement;
+      }
+      const own = row === input ? "" : textOf(row);
+      if (own && own.length <= 120) return own;
+    }
+  }
+  return label;
 }
 
 function getGroupLabel(
@@ -6241,6 +6263,17 @@ function detectPageErrors(): { errors: Array<{ field_id: string; message: string
     else if (!page.includes(message)) page.push(message);
   }
 
+  // 1b. The text a field points at (aria-describedby) when it starts like an error: LinkedIn's "-info" box reads
+  // "Invalid input 10/20 0 of 20 characters" under a rejected answer (2026-11-10). The character counter is dropped.
+  for (const f of queryAllDeep(FIELD_SELECTOR, root) as HTMLElement[]) {
+    for (const ref of (f.getAttribute("aria-describedby") || "").split(/\s+/).filter(Boolean)) {
+      const el = ownerRoot(f).getElementById(ref);
+      if (!el || !isRendered(el)) continue;
+      const message = textOf(el).replace(/\b\d+\s*\/\s*\d+\b/g, "").replace(/\b\d+ of \d+ characters?\b/gi, "").replace(/\s+/g, " ").trim();
+      if (message && message.length <= 300 && /^(invalid|this field is required|enter an? (valid|decimal|whole|number)|please (enter|select|make)|must be|not a valid)/i.test(message)) add(f, message);
+    }
+  }
+
   // 2. The browser's own validation, and aria-invalid with no message.
   for (const el of queryAllDeep(FIELD_SELECTOR, root) as HTMLElement[]) {
     if (!isRendered(el) || isHoneypot(el) || el.closest(SITE_CHROME_SELECTOR)) continue;
@@ -7694,6 +7727,21 @@ if (firstEngineInFrame()) chrome.runtime.onMessage.addListener(
     // Indeed Apply's own applier (src/content/ats/indeed.ts): IN_* messages.
     if (typeof message?.type === "string" && message.type.startsWith("IN_")) {
       return handleIndeedMessage(message, sendResponse);
+    }
+
+    // LinkedIn Easy Apply's own applier (src/content/ats/linkedin.ts): LI_* messages.
+    if (typeof message?.type === "string" && message.type.startsWith("LI_")) {
+      return handleLinkedinMessage(message, sendResponse);
+    }
+
+    // Naukri's own applier (src/content/ats/naukri.ts): NK_* messages.
+    if (typeof message?.type === "string" && message.type.startsWith("NK_")) {
+      return handleNaukriMessage(message, sendResponse);
+    }
+
+    // Lever's own applier (src/content/ats/lever.ts): LV_* messages.
+    if (typeof message?.type === "string" && message.type.startsWith("LV_")) {
+      return handleLeverMessage(message, sendResponse);
     }
 
     // Keka's own applier (src/content/ats/keka.ts): KK_* messages.

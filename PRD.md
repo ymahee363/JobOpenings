@@ -7,7 +7,7 @@ cl# PRD: Naukri Fast-Apply Job Board
 | **Last updated** | 2026-10-21 |
 | **Source page** | [Naukri homepage](https://www.naukri.com/mnjuser/homepage) (logged in) |
 
-## 1. Summaryc
+## 1. Summary
 
 I will build a personal job board web app that collects every opening on my logged-in Naukri homepage, sorts them by posting date (newest first), and splits them into two tabs: **Easy Apply** (apply inside Naukri) and **Company Site** (apply on an external careers page). Success means applying to fresh, relevant jobs within hours of posting, at twice my current weekly volume, with no risk to my Naukri account.
 

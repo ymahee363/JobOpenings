@@ -263,7 +263,7 @@ describe('explainEmptyQueue', () => {
     expect(explainEmptyQueue([], [], [], config(), [], NOW)).toContain('No iimjobs jobs on the board yet');
     expect(explainEmptyQueue([job()], [], [], config({ myYears: null }), [], NOW)).toContain('Set "My years of experience"');
     const text = explainEmptyQueue([job({ expMin: 10, expMax: 15 }), job({ expMin: 12, expMax: 16 }), job({ applyType: 'company_site' })], [], [], config(), [], NOW);
-    expect(text).toBe('No matching job among 3 iimjobs jobs. Most common reasons: needs more experience than yours (2), applies on a company site (1)');
+    expect(text.startsWith('No matching job among 3 iimjobs jobs. Most common reasons: needs more experience than yours (2), applies on a company site (1)')).toBe(true);
   });
 });
 

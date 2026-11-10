@@ -29,6 +29,8 @@ export function attemptsTodayBySite(attempts: Attempt[], now: number): Record<st
   const out: Record<string, number> = {};
   for (const a of attempts) {
     if (a.startedAt < from) continue;
+    // Your own "Apply with AI" runs are not the agent's pages: they do not use up its daily limit (2026-11-10).
+    if (a.matched?.some((m) => /started by you/i.test(m))) continue;
     const site = siteOfJobId(a.jobId) ?? 'other';
     out[site] = (out[site] ?? 0) + 1;
   }

@@ -13,7 +13,7 @@ export const DEFAULT_PROFILE: CandidateProfile = {
   location: "Bengaluru",
 
   current_ctc: 2700000,
-  expected_ctc: 3000000,
+  expected_ctc: 2700000,
 
   notice_period: "15 days",
 

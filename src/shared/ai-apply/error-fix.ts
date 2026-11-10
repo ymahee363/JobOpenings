@@ -56,10 +56,10 @@ export function classifyError(message: string, field?: FormField): ErrorInfo {
   if (x) return { kind: 'range', min: num(x[1]), max: num(x[2]) };
   x = re(String.raw`(?:less than or equal to|no (?:more|greater) than|at most|cannot be (?:more|greater) than|must be (?:≤|<=)|maximum(?: value)?(?: is| of)?)\s*${NUM}`).exec(m);
   if (x) return { kind: 'range', max: num(x[1]) };
-  x = re(String.raw`(?:greater than or equal to|no less than|at least|cannot be less than|must be (?:≥|>=)|minimum(?: value)?(?: is| of)?)\s*${NUM}`).exec(m);
+  x = re(String.raw`(?:greater than or equal to|no less than|at least|cannot be less than|must be (?:≥|>=)|minimum(?: value)?(?: is| of)?|larger than|greater than|more than)\s*${NUM}`).exec(m);
   if (x) return { kind: 'range', min: num(x[1]) };
 
-  if (/(only|just) (numbers|digits|numeric)|numbers? only|digits? only|must be (a )?(whole )?number|numeric value|not a (valid )?number|enter a (valid )?number|invalid number/i.test(m)) {
+  if (/(only|just) (numbers|digits|numeric)|numbers? only|digits? only|must be (a )?(whole )?number|numeric value|not a (valid )?number|enter a (valid )?(decimal |whole )?number|invalid number/i.test(m)) {
     return /phone|mobile/i.test(`${m} ${field?.label ?? ''}`) ? { kind: 'phone' } : { kind: 'digits_only' };
   }
   if (/(only|just) letters|letters only|alphabet(ic|s)? only|no (numbers|digits|special characters)/i.test(m)) return { kind: 'letters_only' };
@@ -144,6 +144,15 @@ export function planFix(field: FormField, message: string, answer: string, tried
   const set = (v: string, why: string): FixAction | null => (fresh(v) ? { action: 'set', answer: v, why } : null);
   const ai = (guidance: string): FixAction => ({ action: 'ask_ai', guidance: `${guidance} The form said: "${message.slice(0, 200)}".` });
   const kind = classifyField(field);
+
+  // A bare "Invalid input" on an amount, rate or count written with words ("Rs.2700000", "27 LPA", "5 years"):
+  // the box wants the number alone (LinkedIn, 2026-11-10).
+  if (info.kind === 'unknown' && has && /\d/.test(a) && /\D/.test(a.replace(/[\s,]/g, '')) && /invalid/i.test(message)
+    && /charge|salary|ctc|compensation|pay|rate|fee|price|amount|budget|lpa|years?|months?|days?|notice|number|count|how many|how much/i.test(`${field.label} ${a}`)) {
+    const n = parseNumber(a);
+    const fix = set(n !== null ? String(n) : a.replace(/[^\d.]/g, ''), 'the number alone');
+    if (fix) return fix;
+  }
 
   switch (info.kind) {
     case 'too_long': {
