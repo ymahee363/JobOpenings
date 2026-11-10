@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getDb } from '../db/db';
 import { restoreStatus, setStatus } from '../db/repo';
 import {
-  atsCounts, buildRows, computeStats, countHiddenByTitle, extraDetailsFrom, rowsForTab, type BoardRow, type BoardTab, type Filters,
+  atsCounts, platformLabel, buildRows, countHiddenByTitle, extraDetailsFrom, rowsForTab, type BoardRow, type BoardTab, type Filters,
   type MovableTab, type TabOverrides,
 } from '../shared/board';
 import { agentHeadline } from '../shared/auto-apply/pacing';
@@ -161,7 +161,6 @@ export function App() {
     }
     return out;
   }, [rows, filters, now, hiddenTitleWords]);
-  const stats = useMemo(() => computeStats(rows, now), [rows, now]);
 
   useEffect(() => {
     if (selected >= visible.length && visible.length > 0) setSelected(visible.length - 1);
@@ -310,10 +309,12 @@ export function App() {
       : health.parser === 'needs_update' ? 'Parser needs update'
         : paused ? 'Paused' : refreshing ? 'Refreshing…' : 'OK';
   const resumeRefresh = () => chrome.runtime.sendMessage({ type: 'resume' }).catch(() => undefined);
-  // Jobs the agent applied to today; the Agent panel has the full breakdown.
+  // Jobs applied to today: by the agent and by you (the Agent panel has the full breakdown).
   const agentToday = useMemo(() => {
     const from = new Date(now).setHours(0, 0, 0, 0);
-    return rows.filter((r) => r.appliedBy === 'agent' && (r.statusAt ?? 0) >= from).length;
+    const today = rows.filter((r) => r.status === 'applied' && (r.statusAt ?? 0) >= from);
+    const agent = today.filter((r) => r.appliedBy === 'agent').length;
+    return { agent, me: today.length - agent };
   }, [rows, now]);
   const agentLine = agentHeadline(agent, agentState, halted, agentToday, (t) => shortTime(t, now));
   const toggleKeepAwake = async () => {
@@ -408,7 +409,7 @@ export function App() {
         <AgentPanel config={agent} state={agentState} jobs={jobs} statuses={statuses} hiddenTitleWords={hiddenTitleWords} now={now} />
       )}
       {panel === 'profile' && <ProfilePanel />}
-      {panel === 'stats' && <StatsPanel stats={stats} />}
+      {panel === 'stats' && <StatsPanel rows={rows} attempts={data.attempts} />}
       {panel === 'settings' && (
         <SettingsPanel settings={settings} hiddenTitleWords={hiddenTitleWords}
           hiddenCount={countHiddenByTitle(rows, hiddenTitleWords)} />
@@ -428,18 +429,26 @@ export function App() {
 
       {tab !== 'applied' && <FilterBar ref={keywordRef} filters={filters} onChange={setFilters} />}
       {tab !== 'applied' && atsChips.length > 0 && (
-        <div className="ats-chips" role="group" aria-label="Filter by ATS">
-          <span className="hint">ATS:</span>
+        <div className="ats-chips" role="group" aria-label="Filter by platform">
+          <span className="hint">Platform:</span>
           {atsChips.map(({ ats, count }) => {
             const on = filters.ats?.includes(ats) ?? false;
             return (
               <button key={ats} type="button" className={`chip ${on ? 'on' : ''}`} aria-pressed={on}
                 onClick={() => setFilters({ ...filters, ats: on ? (filters.ats ?? []).filter((a) => a !== ats) : [...(filters.ats ?? []), ats] })}>
-                {ats} ({count})
+                {platformLabel(ats)} ({count})
               </button>
             );
           })}
           {!!filters.ats?.length && <button type="button" className="link" onClick={() => setFilters({ ...filters, ats: [] })}>Clear</button>}
+          <label className="hint" style={{ marginLeft: 'auto' }}>
+            Sort:{' '}
+            <select value={filters.sort ?? 'posted'} onChange={(e) => setFilters({ ...filters, sort: e.target.value as Filters['sort'] })} aria-label="Sort jobs">
+              <option value="posted">Newest posted</option>
+              <option value="found">Newest found</option>
+              <option value="oldest">Oldest posted</option>
+            </select>
+          </label>
         </div>
       )}
 

@@ -96,6 +96,20 @@ export function decide(report: ApplyReport, dryRun: boolean): Decision {
   }
 }
 
+/**
+ * The outcome of a manual "Apply with AI" run. A company-site job is skipped, not failed: LinkedIn applies to Easy
+ * Apply jobs only (user, 2026-11-10), and the log showed every such job as "AI apply failed: ... applies on the
+ * company site" (2026-11-10, 5 jobs incl. "Product Manager-II, Amazon SEND").
+ */
+export function manualOutcome(result: ApplyReport['result']): AttemptOutcome {
+  if (result === 'applied') return 'applied';
+  if (result === 'ready') return 'filled';
+  if (result === 'closed' || result === 'external') return 'skipped';
+  if (result === 'needs_me') return 'needs_me';
+  if (result === 'stopped') return 'halted';
+  return 'failed';
+}
+
 export interface RunDeps {
   now(): number;
   rand: Rand;

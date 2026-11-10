@@ -13,7 +13,7 @@ import { applyEverywhere, normalizeAgentConfig } from '../shared/auto-apply/conf
 import { AGENT_SITES, confirmedJobIds, jobPageOf, naukriApplyResult, SITE_PAGES, type AgentSite } from '../shared/auto-apply/job-page';
 import { buildQueue, explainEmptyQueue } from '../shared/auto-apply/match';
 import { cappedSites, hoursLabel, inAgentHours, planNextRun, staleAttempts, startOfDay, summarize } from '../shared/auto-apply/pacing';
-import { runOnce, type ApplyReport, type ApplyRequest, type NoRunReason, type RunDeps } from '../shared/auto-apply/runner';
+import { manualOutcome, runOnce, type ApplyReport, type ApplyRequest, type NoRunReason, type RunDeps } from '../shared/auto-apply/runner';
 import { BoardMessage, CollectorMessage, DB_CHANGED, type RefreshResponse } from '../shared/messages';
 import { parseCapture, type CaptureResult } from '../shared/parse';
 import { parseIndeedCapture } from '../shared/parse-indeed';
@@ -561,7 +561,43 @@ async function sendApplyRun(tabId: number, msg: object): Promise<boolean> {
  * Open one job page in a background tab, run the site's one-click applier there (or AI apply, for a company site or a
  * site without one), then close it. A tab where AI apply filled the form and waits for your Submit stays open.
  */
+/**
+ * What a job page shows, read straight from the page (no content-script message): "applied" when an apply control
+ * reads Applied / "Application sent!", "closed" when the page says the job no longer takes applications. Used when
+ * the applier's report is missing (2026-11-10: three Instahyre applies went through but were logged "no report from
+ * the job page", because the report was lost while the service worker was stopped).
+ */
+async function pageVerdictByScript(tabId: number, site: AgentSite, waitMs = 15_000): Promise<'applied' | 'closed' | 'unknown'> {
+  const until = Date.now() + waitMs;
+  for (;;) {
+    const [res] = await chrome.scripting.executeScript({
+      target: { tabId },
+      args: [SITE_PAGES[site].applySelector],
+      func: (selector: string) => {
+        const clean = (s: string | null) => (s ?? '').replace(/\s+/g, ' ').trim();
+        const texts = [...document.querySelectorAll<HTMLElement>(selector)].filter((b) => b.getClientRects().length > 0).map((b) => clean(b.textContent));
+        if (texts.some((t) => /^(applied|application sent!?|you applied|application submitted)$/i.test(t))) return 'applied';
+        if (/no longer (accepting|available|active)|job (has )?expired|this job (is|has been) closed/i.test(clean(document.body?.innerText ?? '').slice(0, 5000))) return 'closed';
+        return 'unknown';
+      },
+    }).catch(() => [{ result: 'unknown' as const }]);
+    const v = (res?.result ?? 'unknown') as 'applied' | 'closed' | 'unknown';
+    if (v !== 'unknown' || Date.now() >= until) return v;
+    await delay(1_500);
+  }
+}
+
 async function runInAgentTab(url: string, req: ApplyRequest): Promise<ApplyReport> {
+  // Keep the service worker awake while it waits for the page's report: a stopped worker loses it (2026-11-10).
+  const keepAlive = setInterval(() => chrome.runtime.getPlatformInfo().catch(() => undefined), KEEPALIVE_MS);
+  try {
+    return await runInAgentTabInner(url, req);
+  } finally {
+    clearInterval(keepAlive);
+  }
+}
+
+async function runInAgentTabInner(url: string, req: ApplyRequest): Promise<ApplyReport> {
   const target = new URL(url);
   const page = jobPageOf(target.href);
   if (!page) {
@@ -594,13 +630,26 @@ async function runInAgentTab(url: string, req: ApplyRequest): Promise<ApplyRepor
     run.sent = true;
     let report = await result;
     agentRun = null;
+    // No report from the page: read the page itself before calling it a failure.
+    if (/^no report from the job page/.test(report.reason) && !req.dryRun) {
+      const seen = await pageVerdictByScript(tabId, page.site, 5_000);
+      if (seen === 'applied') return { ...report, result: report.clicked ? 'applied' : 'already_applied', reason: 'the job page shows it as applied (read from the page)' };
+      if (seen === 'closed') return { ...report, result: 'closed', reason: 'the job is no longer accepting applications' };
+    }
     // The site asked for details, or applies on the company site: AI apply takes over (a dry run only says so).
     if (req.aiApply && (report.result === 'needs_me' || report.result === 'external')) {
       if (req.dryRun) return { ...report, result: 'can_apply', reason: `dry run: AI apply would take over (${report.reason || report.result})` };
-      await chrome.tabs.update(tabId, { url: target.href });
-      await delay(1_000);
-      if (!(await waitForTabComplete(tabId, AGENT_PAGE_LOAD_MS))) return { ...report, reason: `${report.reason}; the page did not reload for AI apply` };
-      const ai = await runAi(tabId, target.href, req.aiSubmit ? 'submit' : 'fill', { agent: true });
+      // On iimjobs' screening form the questions are already open: answer them there; anywhere else reopen the job.
+      const onScreening = screeningTabs.delete(tabId);
+      if (onScreening) {
+        await waitForTabComplete(tabId, AGENT_PAGE_LOAD_MS);
+        await delay(1_500);
+      } else {
+        await chrome.tabs.update(tabId, { url: target.href });
+        await delay(1_000);
+        if (!(await waitForTabComplete(tabId, AGENT_PAGE_LOAD_MS))) return { ...report, reason: `${report.reason}; the page did not reload for AI apply` };
+      }
+      const ai = await runAi(tabId, onScreening ? ((await chrome.tabs.get(tabId)).url ?? target.href) : target.href, req.aiSubmit ? 'submit' : 'fill', { agent: true });
       keepOpen = ai.keepOpen;
       return { ...ai.report, clicked: ai.report.clicked || report.clicked, dialogs: report.dialogs };
     }
@@ -613,6 +662,7 @@ async function runInAgentTab(url: string, req: ApplyRequest): Promise<ApplyRepor
     return report;
   } finally {
     agentRun = null;
+    screeningTabs.delete(tabId);
     if (!keepOpen) await chrome.tabs.remove(tabId).catch(() => undefined);
   }
 }
@@ -890,8 +940,7 @@ async function runAiManual(url: string, jobId: string | null): Promise<unknown> 
       const report = await runAiInNewTab(url, config.aiSubmit ? 'submit' : 'fill', {
         agent: false, active: true, status: (t) => { noteAgentCheck(`AI apply: ${t}`).then(broadcastChanged).catch(() => undefined); },
       }).catch((e: unknown) => agentFail('error', String(e).slice(0, 200)));
-      const outcome = report.result === 'applied' ? 'applied' : report.result === 'ready' ? 'filled' : report.result === 'closed' ? 'skipped'
-        : report.result === 'needs_me' ? 'needs_me' : report.result === 'stopped' ? 'halted' : 'failed';
+      const outcome = manualOutcome(report.result);
       await finishAttempt(db, id, { finishedAt: Date.now(), outcome, reason: report.reason, clicked: report.clicked, answers: report.answers, questions: report.questions });
       if (outcome === 'applied' && job) await setStatus(db, job.jobId, 'applied', Date.now(), 'agent');
       // An expired job leaves the board.
@@ -917,8 +966,13 @@ async function verifyApplied(tabId: number, url: string, report: ApplyReport): P
     await delay(1_000);
     if (!(await waitForTabComplete(tabId, AGENT_PAGE_LOAD_MS))) return report;
     const landed = await chrome.tabs.get(tabId);
-    const jobId = jobPageOf(landed.url ?? url)?.jobId;
+    const where = jobPageOf(landed.url ?? url);
+    const jobId = where?.jobId;
     if (!jobId) return report;
+    // Read the reloaded page directly first: it does not depend on the applier's message getting through.
+    const direct = await pageVerdictByScript(tabId, where.site);
+    if (direct === 'applied') return { ...report, result: 'applied', reason: 'job page shows Applied after reload' };
+    if (direct === 'closed') return { ...report, result: 'closed', reason: 'the job is no longer accepting applications' };
     const token = newToken();
     const check = new Promise<ApplyReport>((resolve) => {
       agentRun = { tabId, token, jobId, sent: false, clicked: false, resolve };
@@ -1228,6 +1282,18 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 // After Apply, iimjobs leaves the job page for its confirmation page, which ends the applier on the old page. Watch
 // the agent's tab instead: the confirmation for this job means applied; any other move (to another page or another
 // job) gets checked by reopening the job page.
+/** Agent tabs that moved to iimjobs' screening form after Apply: AI apply answers it there, without reloading. */
+const screeningTabs = new Set<number>();
+
+function isIimjobsScreening(raw: string, jobId: string): boolean {
+  try {
+    const u = new URL(raw);
+    return u.hostname === 'www.iimjobs.com' && u.pathname.replace(/\/$/, '') === `/job/${jobId.replace(/^iimjobs-/, '')}/screening`;
+  } catch {
+    return false;
+  }
+}
+
 chrome.tabs.onUpdated.addListener((tabId, change) => {
   const run = agentRun;
   if (!run || tabId !== run.tabId || !run.sent) return;
@@ -1237,6 +1303,14 @@ chrome.tabs.onUpdated.addListener((tabId, change) => {
     return;
   }
   if (!change.url) return;
+  // iimjobs asks screening questions after Apply on /job/<id>/screening ("current / expected salary in LPA", then
+  // Next): a form, not a failure. AI apply answers it on that page (2026-11-10: 2 jobs were logged "page moved to
+  // /job/<id>/screening after Apply" and never applied).
+  if (isIimjobsScreening(change.url, run.jobId)) {
+    screeningTabs.add(tabId);
+    run.resolve({ ...agentFail('needs_me', 'iimjobs screening questions after Apply'), clicked: true });
+    return;
+  }
   // Naukri opens its confirmation page on failure too: only its 200 for this job is "applied", and its message is kept.
   const naukri = naukriApplyResult(change.url, run.jobId);
   if (naukri.status === 'failed') {

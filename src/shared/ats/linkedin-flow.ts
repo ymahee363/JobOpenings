@@ -84,6 +84,11 @@ export async function runLinkedinApply(deps: FlowDeps, mode: FlowMode, job: { ti
     stepData = null;
     stepAnswers = [];
     if (s.page === 'submitted') return report('applied', { ...base(), reason: 'LinkedIn confirmed: your application was sent' });
+    // The dialog is gone (back on the job page): pressing on would only count steps to "more than 12 steps"
+    // (2026-11-10, Time Hack Consulting: "step: job" after the contact step). Say where it closed.
+    if (n > 0 && (s.page === 'job' || s.page === 'closed' || s.page === 'external')) {
+      return report('needs_me', { ...base(), reason: `LinkedIn: the Easy Apply form closed after "${lastStep.slice(0, 80)}"`, questions: ['Finish the application on LinkedIn'] });
+    }
     if (n > 0 && !lastMoved && s.step === lastStep && s.page === 'step') {
       return report('needs_me', { ...base(), reason: `LinkedIn: stuck on "${s.step.slice(0, 80)}"${s.errors.length ? `: ${s.errors.join('; ')}` : ''}`.slice(0, 300), questions: s.errors.length ? s.errors : ['Finish this step on LinkedIn'] });
     }

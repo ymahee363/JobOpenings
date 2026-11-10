@@ -56,3 +56,34 @@ describe('LinkedIn closed job', () => {
     expect(liState()).toMatchObject({ page: 'closed', message: 'Not currently accepting applications' });
   });
 });
+
+import { runLinkedinApply } from '../src/shared/ats/linkedin-flow';
+import type { FlowDeps } from '../src/shared/ai-apply/flow';
+describe('LinkedIn flow when the dialog closes mid-run', () => {
+  // 2026-11-10, Time Hack Consulting: after the contact step the state read "job" (dialog gone) and the flow kept
+  // pressing on until "more than 12 steps". It now stops at once and says where the form closed.
+  it('stops with "the Easy Apply form closed" instead of counting to 12 steps', async () => {
+    const states = [
+      { page: 'step', step: '16 First name* | Last name*', errors: [] },
+      { page: 'step', step: '16 First name* | Last name*', errors: [] },
+      { page: 'job', step: '', errors: [] },
+    ];
+    let i = 0;
+    const deps = {
+      frames: async () => [0],
+      status: () => {},
+      mayClick: async () => null,
+      saveMemory: async () => {},
+      send: async (_f: number, m: { type: string }) => {
+        if (m.type === 'LI_STATE') return states[Math.min(i++, states.length - 1)];
+        if (m.type === 'LI_LOCATION') return { location: 'Bengaluru, Karnataka, India' };
+        if (m.type === 'LI_RESUME') return { ok: true, picked: '', why: 'no resume list on this step' };
+        if (m.type === 'LI_NEXT') return { ...states[2], moved: true };
+        return { ok: false };
+      },
+    } as unknown as FlowDeps;
+    const r = await runLinkedinApply(deps, 'live' as never, { title: 'PM', company: 'X' }, 'https://www.linkedin.com/jobs/view/1/');
+    expect(r.result).toBe('needs_me');
+    expect(r.reason).toMatch(/form closed after "16 First name/);
+  });
+});

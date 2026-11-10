@@ -136,7 +136,8 @@ export async function runWorkdayApply(deps: FlowDeps, mode: FlowMode, plan: Work
       await deps.sleep(500);
       state = await call<WdState>({ type: 'WD_STATE' }).catch(() => state);
     }
-    if (state.page === 'submitted') return report('applied', { ...base(), reason: `${hostOf(url)} (Workday) confirmed the application` });
+    if (state.page === 'submitted') return report('applied', { ...base(), reason: `${hostOf(url)} (Workday) ${state.errors?.includes('already applied') ? 'shows you already applied' : 'confirmed the application'}` });
+    if (state.page === 'closed') return report('closed', { ...base(), reason: `${hostOf(url)} (Workday): the job is no longer open` });
     if (state.page === 'signIn' && deps.account?.email && deps.account.password && accountSteps < 3) {
       // The account agent (src/content/account.ts): Workday's Sign In or Create Account, with your .env account.
       accountSteps += 1;
@@ -189,7 +190,7 @@ export async function runWorkdayApply(deps: FlowDeps, mode: FlowMode, plan: Work
       return report('no_confirmation', { ...base(), reason: 'Workday: pressed Submit; no confirmation seen' });
     }
     if (state.page !== 'step') {
-      return report('needs_me', { ...base(), reason: `Workday: unexpected page (${state.page})`, questions: ['Finish the application on the page'] });
+      return report('needs_me', { ...base(), reason: `Workday: unexpected page (${state.page})${state.errors?.length ? `: ${state.errors.join('; ')}` : ''}`.slice(0, 300), questions: ['Finish the application on the page'] });
     }
 
     say(`step "${state.step}": filling from your profile`);

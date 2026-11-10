@@ -56,7 +56,7 @@ export interface WorkdayPlan {
   questions: Array<{ pattern: string; answers: string[] }>;
 }
 
-export type WdPage = 'job' | 'chooser' | 'signIn' | 'step' | 'review' | 'submitted' | 'unknown';
+export type WdPage = 'job' | 'chooser' | 'signIn' | 'step' | 'review' | 'submitted' | 'closed' | 'unknown';
 
 export interface WdState {
   /** Which fields the page shows: changes when the wizard moves to another step. */
@@ -112,6 +112,11 @@ export function wdState(): WdState {
   if (/application (has been )?submitted|thank you for (applying|your application)|you have (successfully )?applied/i.test(text.slice(0, 5000))) {
     return { page: 'submitted', step: '', errors };
   }
+  // Applied before, or the posting is gone (2026-11-10: 4 Naukri → Workday runs ended "unexpected page (unknown)").
+  if (/you('ve| have) already applied|already applied (for|to) this job/i.test(text.slice(0, 5000))) return { page: 'submitted', step: '', errors: ['already applied'] };
+  if (/no longer (accepting|available|open)|(job|position|posting) (has been )?(filled|closed|removed)|page you are looking for (doesn't|does not) exist|job you are trying to apply for/i.test(text.slice(0, 5000))) {
+    return { page: 'closed', step: '', errors };
+  }
   if (auto('applyManually') && visible(auto('applyManually'))) return { page: 'chooser', step: '', errors };
   // Also by the wizard's own step name: on Cisco (2026-11-06) the progress bar said "Create Account/Sign In" while the
   // password boxes were still rendering, so the page was read as a form step and its passwords as questions.
@@ -127,7 +132,9 @@ export function wdState(): WdState {
   if (/^review$/i.test(step)) return { page: 'review', step, errors };
   if (visible(auto('pageFooterNextButton')) || step) return { page: 'step', step: step || 'unknown', errors, fingerprint: formFingerprint() };
   if (visible(auto('adventureButton'))) return { page: 'job', step: '', errors };
-  return { page: 'unknown', step: '', errors };
+  // Say what the page shows, so an unknown page can be fixed from the log.
+  const seen = [...document.querySelectorAll<HTMLElement>('h1, h2, h3, button')].filter(visible).map((e) => e.innerText.replace(/\s+/g, ' ').trim()).filter((t) => t && t.length < 60).slice(0, 8);
+  return { page: 'unknown', step: '', errors: seen.length ? [`page shows: ${seen.join(' | ')}`.slice(0, 280)] : errors };
 }
 
 function formFingerprint(): string {

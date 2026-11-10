@@ -43,7 +43,7 @@ const common = {
   sourcemap: watch ? 'inline' : false,
   minify: !watch,
   legalComments: 'none',
-  define: { 'process.env.NODE_ENV': JSON.stringify(watch ? 'development' : 'production') },
+  define: { 'process.env.NODE_ENV': JSON.stringify(watch ? 'development' : 'production'), __BUILT_AT__: String(Date.now()) },
   logLevel: 'info',
 };
 

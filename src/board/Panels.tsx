@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { getDb } from '../db/db';
 import { exportBackup, importBackup, purge, recentLog } from '../db/repo';
 import {
-  appliedCsv, cleanHideWord, DEFAULT_HIDDEN_TITLE_WORDS, SITE_LABEL, SITES, type BoardRow, type Stats,
+  appliedCsv, cleanHideWord, DEFAULT_HIDDEN_TITLE_WORDS, agentStats, siteStats, SITE_LABEL, SITES, type BoardRow,
 } from '../shared/board';
 import { clampRefreshMinutes } from '../shared/safety';
 import { save } from '../shared/store';
 import type { LogEntry, Settings } from '../shared/types';
+import type { Attempt } from '../shared/auto-apply/config';
 
 function download(name: string, text: string, type: string): void {
   const url = URL.createObjectURL(new Blob([text], { type }));
@@ -19,30 +20,80 @@ function download(name: string, text: string, type: string): void {
 
 const stamp = () => new Date().toISOString().slice(0, 10);
 
-export function StatsPanel({ stats }: { stats: Stats }) {
+const DAY_MS = 86_400_000;
+const isoDay = (t: number) => new Date(t - new Date(t).getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+
+type ColKey = 'added' | 'applied' | 'byAgent' | 'byYou' | 'tried' | 'stuck' | 'skipped' | 'success';
+
+/** Per platform (or all of them): relevant jobs added and applications (by the agent / by you) for a period. */
+function PlatformStats({ rows, attempts }: { rows: BoardRow[]; attempts: Attempt[] }) {
+  const [period, setPeriod] = useState<'today' | '7' | '14' | '30' | 'all' | 'range'>('today');
+  const now = Date.now();
+  const [fromDay, setFromDay] = useState(isoDay(now - 7 * DAY_MS));
+  const [toDay, setToDay] = useState(isoDay(now));
+  const from = period === 'range' ? new Date(`${fromDay}T00:00:00`).getTime() : period === 'all' ? 0 : period === 'today' ? new Date(new Date(now).setHours(0, 0, 0, 0)).getTime() : now - Number(period) * DAY_MS;
+  const to = period === 'range' ? new Date(`${toDay}T23:59:59`).getTime() : now;
+  const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : '—');
+  // Rows sorted by the column you click (biggest first, click again for smallest); Total stays last.
+  const [sortBy, setSortBy] = useState<{ key: ColKey; desc: boolean }>({ key: 'added', desc: true });
+  const table = SITES.map((p) => {
+    const s = siteStats(rows, p, from, to);
+    const a = agentStats(attempts, p, from, to);
+    return { p, s, a, v: { added: s.added, applied: s.applied, byAgent: s.byAgent, byYou: s.byYou, tried: a.tried, stuck: a.stuck, skipped: a.skipped, success: a.tried ? s.byAgent / a.tried : -1 } };
+  }).sort((x, y) => (sortBy.desc ? y.v[sortBy.key] - x.v[sortBy.key] : x.v[sortBy.key] - y.v[sortBy.key]) || SITE_LABEL[x.p].localeCompare(SITE_LABEL[y.p]));
+  const total = { s: siteStats(rows, 'all', from, to), a: agentStats(attempts, 'all', from, to) };
+  const head = (key: ColKey, label: string) => (
+    <th scope="col" aria-sort={sortBy.key === key ? (sortBy.desc ? 'descending' : 'ascending') : 'none'}>
+      <button type="button" className="link" onClick={() => setSortBy({ key, desc: sortBy.key === key ? !sortBy.desc : true })}>
+        {label}{sortBy.key === key ? (sortBy.desc ? ' ▼' : ' ▲') : ''}
+      </button>
+    </th>
+  );
+  return (
+    <>
+      <h3>By platform</h3>
+      <div className="ats-chips" role="group" aria-label="Period">
+        {([['today', 'Today'], ['7', 'Last 7 days'], ['14', 'Last 14 days'], ['30', 'Last month'], ['all', 'All time'], ['range', 'Dates']] as const).map(([p, label]) => (
+          <button key={p} type="button" className={`chip ${period === p ? 'on' : ''}`} aria-pressed={period === p} onClick={() => setPeriod(p)}>{label}</button>
+        ))}
+        {period === 'range' && (
+          <>
+            <label className="hint">From <input type="date" value={fromDay} max={toDay} onChange={(e) => setFromDay(e.target.value)} /></label>
+            <label className="hint">To <input type="date" value={toDay} min={fromDay} onChange={(e) => setToDay(e.target.value)} /></label>
+          </>
+        )}
+      </div>
+      <table className="stats-table">
+        <thead>
+          <tr>
+            <th scope="col">Platform</th>{head('added', 'Jobs added')}{head('applied', 'Applied')}
+            {head('byAgent', 'By agent')}{head('byYou', 'By you')}{head('tried', 'Agent tried')}
+            {head('stuck', 'Agent stuck')}{head('skipped', 'Agent skipped')}{head('success', 'Agent success')}
+          </tr>
+        </thead>
+        <tbody>
+          {[...table, { p: 'all' as const, ...total }].map(({ p, s, a }) => {
+            return (
+              <tr key={p} className={p === 'all' ? 'total' : ''}>
+                <th scope="row">{p === 'all' ? 'Total' : SITE_LABEL[p]}</th>
+                <td>{s.added}</td><td>{s.applied}</td><td>{s.byAgent}</td><td>{s.byYou}</td>
+                <td>{a.tried}</td><td className={a.stuck ? 'warn-text' : ''}>{a.stuck}</td><td>{a.skipped}</td>
+                <td title="Applied by the agent ÷ jobs it tried">{pct(s.byAgent, a.tried)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </>
+  );
+}
+
+/** Stats: the per-platform table only (user, 2026-11-10: "keep what we implemented today, remove the other data"). */
+export function StatsPanel({ rows, attempts }: { rows: BoardRow[]; attempts: Attempt[] }) {
   return (
     <section className="panel" aria-labelledby="stats-h">
       <h2 id="stats-h">Stats</h2>
-      <dl className="stats">
-        <div><dt>Applied, last 7 days</dt><dd>{stats.appliedLast7Days}</dd></div>
-        <div><dt>Applied, all time</dt><dd>{stats.appliedTotal}</dd></div>
-        <div>
-          <dt>Median posting to apply</dt>
-          <dd>{stats.medianHoursPostedToApplied === null ? '—' : `${stats.medianHoursPostedToApplied} h`}</dd>
-        </div>
-        <div><dt>Jobs tracked</dt><dd>{stats.jobsTracked}</dd></div>
-        <div><dt>Easy Apply / Company Site / Unknown</dt>
-          <dd>{stats.byType.easy_apply} / {stats.byType.company_site} / {stats.byType.unknown}</dd></div>
-        <div><dt>Jobs per site</dt>
-          <dd>{SITES.map((s) => `${SITE_LABEL[s]} ${stats.bySite[s]}`).join(' · ')}</dd></div>
-      </dl>
-      <p className="hint">Targets: 2x your baseline applications per week, and a median under 24 hours.</p>
-      <h3 className="hint">Jobs per feed ("search" is the saved Naukri product manager search, "indeed-*" come from Indeed, "instahyre-search" from Instahyre saved searches, "wellfound-search" from Wellfound, "cutshort-search" from Cutshort, "foundit-search" from foundit, "iimjobs-search" from iimjobs, "linkedin-*" from LinkedIn pages you opened; the rest match the tabs on Naukri's recommended jobs page)</h3>
-      <dl className="stats">
-        {Object.entries(stats.byFeed).sort(([a], [b]) => a.localeCompare(b)).map(([feed, n]) => (
-          <div key={feed}><dt>{feed}</dt><dd>{n}</dd></div>
-        ))}
-      </dl>
+      <PlatformStats rows={rows} attempts={attempts} />
     </section>
   );
 }

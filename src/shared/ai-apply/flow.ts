@@ -902,6 +902,9 @@ async function runAiApplyOnce(deps: FlowDeps, opts: FlowOptions): Promise<ApplyR
       // A step that applies by itself once answered, then leaves the form (Naukri's chatbot opens its confirmation page).
       if (page > 1 && (await signals(deps)).confirmed) return report('applied', { ...base(), reason: 'the site confirmed the application' });
       if (page > 1 || !data) data = await extractBest(deps);
+      // The next page can take a moment to draw its form: Jobvite (Nutanix, 2026-11-10) shows a data-consent step
+      // first, and right after it the page had no fields yet ("the form disappeared on page 2"). Wait for it.
+      if (!data && page > 1) data = await pollUntil(deps, () => extractBest(deps), (d) => !!d, Math.min(pageWaitMs, 15_000), 1_000);
       // Indeed's "Write a cover letter" / "Add cover letter": opened, so your cover letter goes in.
       if (data && deps.coverLetter?.text?.trim()) {
         const opened = await deps.send(data.frameId, { type: 'OPEN_COVER_LETTER' }).catch(() => null);

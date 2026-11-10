@@ -293,12 +293,64 @@ describe('ATS chips', () => {
   const rows = buildRows([cs('1', 'acme.keka.com'), cs('2', 'beta.keka.com'), cs('3', 'boards.greenhouse.io'), cs('4', 'acme.com')], [], null, now);
 
   it('counts openings per ATS, most first', () => {
-    expect(atsCounts(rows, 'company_site', DEFAULT_FILTERS, now)).toEqual([{ ats: 'keka', count: 2 }, { ats: 'greenhouse', count: 1 }]);
+    // A job without a known ATS is counted under the platform it was found on (2026-11-10).
+    const c = atsCounts(rows, 'company_site', DEFAULT_FILTERS, now);
+    expect(c[0]).toEqual({ ats: 'keka', count: 2 });
+    expect(c.map((x) => x.ats)).toEqual(expect.arrayContaining(['greenhouse', rows[3]!.site]));
   });
 
   it('filters by the chosen ATS and keeps counts for the others', () => {
     const f = { ...DEFAULT_FILTERS, ats: ['greenhouse' as const] };
     expect(rowsForTab(rows, 'company_site', f, now).map((r) => r.jobId)).toEqual(['3']);
-    expect(atsCounts(rows, 'company_site', f, now)).toHaveLength(2);
+    expect(atsCounts(rows, 'company_site', f, now)).toHaveLength(3);
+  });
+});
+
+describe('platform tags and sort (2026-11-10)', () => {
+  const now = Date.now();
+  it('tags native jobs with their site and sorts by time', () => {
+    const a = job({ jobId: 'a', title: 'Product Manager', site: 'linkedin', postedAt: now - 3 * 3600_000, firstSeenAt: now - 60_000 } as never);
+    const b = job({ jobId: 'b', title: 'Product Manager', site: 'naukri', postedAt: now - 3600_000, firstSeenAt: now - 7200_000 } as never);
+    const rows = buildRows([a, b], [], null, now);
+    const tab = rows[0]!.applyType === 'company_site' ? 'company_site' : rowsForTab(rows, 'easy_apply', DEFAULT_FILTERS, now).length ? 'easy_apply' : 'unknown';
+    expect(atsCounts(rows, tab as never, DEFAULT_FILTERS, now).map((c) => c.ats).sort()).toEqual(['linkedin', 'naukri']);
+    expect(rowsForTab(rows, tab as never, { ...DEFAULT_FILTERS, ats: ['linkedin'] }, now).map((r) => r.jobId)).toEqual(['a']);
+    expect(rowsForTab(rows, tab as never, DEFAULT_FILTERS, now).map((r) => r.jobId)).toEqual(['b', 'a']);
+    expect(rowsForTab(rows, tab as never, { ...DEFAULT_FILTERS, sort: 'found' }, now).map((r) => r.jobId)).toEqual(['a', 'b']);
+    expect(rowsForTab(rows, tab as never, { ...DEFAULT_FILTERS, sort: 'oldest' }, now).map((r) => r.jobId)).toEqual(['a', 'b']);
+  });
+});
+
+import { siteStats } from '../src/shared/board';
+describe('LinkedIn stats (2026-11-10)', () => {
+  it('counts relevant jobs added and applications by agent and by you in a period', () => {
+    const now = Date.now();
+    const j = (id: string, over: Record<string, unknown>) => job({ jobId: id, title: 'Product Manager', site: 'linkedin', postedAt: now, firstSeenAt: now - 2 * 86_400_000, ...over } as never);
+    const rows = buildRows([j('a', {}), j('b', {}), j('c', { firstSeenAt: now - 20 * 86_400_000 }), j('d', { title: 'Sales Executive' }), job({ jobId: 'n', title: 'Product Manager', site: 'naukri', postedAt: now, firstSeenAt: now } as never)],
+      [{ jobId: 'a', status: 'applied', statusAt: now - 86_400_000, appliedBy: 'agent' }, { jobId: 'b', status: 'applied', statusAt: now - 86_400_000 }, { jobId: 'c', status: 'applied', statusAt: now - 20 * 86_400_000, appliedBy: 'agent' }], null, now);
+    expect(siteStats(rows, 'linkedin', now - 7 * 86_400_000, now)).toEqual({ added: 2, applied: 2, byAgent: 1, byYou: 1 });
+    expect(siteStats(rows, 'linkedin', now - 30 * 86_400_000, now)).toEqual({ added: 3, applied: 3, byAgent: 2, byYou: 1 });
+  });
+});
+
+describe('platform stats total (2026-11-10)', () => {
+  it('"all" adds every platform up', () => {
+    const now = Date.now();
+    const rows = buildRows([job({ jobId: 'l', title: 'Product Manager', site: 'linkedin', postedAt: now, firstSeenAt: now } as never), job({ jobId: 'n', title: 'Product Manager', site: 'naukri', postedAt: now, firstSeenAt: now } as never)],
+      [{ jobId: 'l', status: 'applied', statusAt: now, appliedBy: 'agent' }, { jobId: 'n', status: 'applied', statusAt: now }], null, now);
+    expect(siteStats(rows, 'all', now - 86_400_000, now + 1)).toEqual({ added: 2, applied: 2, byAgent: 1, byYou: 1 });
+    expect(siteStats(rows, 'naukri', now - 86_400_000, now + 1)).toEqual({ added: 1, applied: 1, byAgent: 0, byYou: 1 });
+  });
+});
+
+import { agentStats } from '../src/shared/board';
+describe('agent stats per platform (2026-11-10)', () => {
+  it('counts tried, stuck and skipped live runs', () => {
+    const now = Date.now();
+    const a = (jobId: string, outcome: string, mode = 'live') => ({ jobId, outcome, mode, startedAt: now - 1000 }) as never;
+    const list = [a('linkedin-1', 'applied'), a('linkedin-2', 'needs_me'), a('linkedin-3', 'skipped'), a('linkedin-4', 'pending'), a('linkedin-5', 'failed', 'dry_run'), a('123456789', 'failed')];
+    expect(agentStats(list, 'linkedin', now - 86_400_000, now)).toEqual({ tried: 3, stuck: 1, skipped: 1 });
+    expect(agentStats(list, 'naukri', now - 86_400_000, now)).toEqual({ tried: 1, stuck: 1, skipped: 0 });
+    expect(agentStats(list, 'all', now - 86_400_000, now).tried).toBe(4);
   });
 });

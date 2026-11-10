@@ -1,3 +1,4 @@
+import { siteOfJobId } from './auto-apply/job-page';
 import { isForeignOnsite } from './foreign';
 /** Pure board logic: building rows, filtering, sorting and stats. */
 import type { ApplyType, Job, JobStatus, Site, Status } from './types';
@@ -38,8 +39,13 @@ export type TabOverrides = Record<string, MovableTab>;
 export interface Filters {
   /** Sites to show; empty shows every site. */
   sites: Site[];
-  /** ATS platforms to show (company-site jobs); empty shows every job. Missing in filters saved before ATS chips. */
-  ats?: Ats[];
+  /**
+   * Platforms to show: a company-site job's ATS ("workday", "lever"), else its native site ("linkedin", "naukri");
+   * empty shows every job. Missing in filters saved before ATS chips.
+   */
+  ats?: string[];
+  /** Order of a section (user, 2026-11-10: "apply fast on the latest jobs"): newest posted (default), newest found, oldest posted. */
+  sort?: 'posted' | 'found' | 'oldest';
   postedWithinDays: number | null;
   expYears: number | null;
   location: string;
@@ -113,7 +119,7 @@ export function matchesFilters(row: BoardRow, f: Filters, now: number): boolean 
   // Foreign jobs only when remote (user, 2026-11-10).
   if (isForeignOnsite(row.location)) return false;
   if (f.sites.length && !f.sites.includes(row.site)) return false;
-  if (f.ats?.length && !(row.ats && f.ats.includes(row.ats))) return false;
+  if (f.ats?.length && !f.ats.includes(platformOf(row))) return false;
   if (f.postedWithinDays !== null && now - row.postedAt > f.postedWithinDays * DAY) return false;
   if (f.expYears !== null) {
     if (row.expMin !== null && f.expYears < row.expMin) return false;
@@ -194,13 +200,28 @@ export function rowsForTab(rows: BoardRow[], tab: BoardTab, f: Filters, now: num
     .filter((r) => inTab(r, tab))
     .filter((r) => !titleHasHiddenWord(r.title, hideWords))
     .filter((r) => matchesFilters(r, f, now))
-    .sort(compareNewestFirst);
+    .sort(f.sort === 'found' ? (a, b) => b.firstSeenAt - a.firstSeenAt || compareNewestFirst(a, b)
+      : f.sort === 'oldest' ? (a, b) => -compareNewestFirst(a, b)
+        : compareNewestFirst);
 }
 
-/** ATS platforms among a tab's jobs (every filter but the ATS one), most openings first. */
-export function atsCounts(rows: BoardRow[], tab: BoardTab, f: Filters, now: number, hideWords: string[] = []): Array<{ ats: Ats; count: number }> {
-  const counts = new Map<Ats, number>();
-  for (const r of rowsForTab(rows, tab, { ...f, ats: [] }, now, hideWords)) if (r.ats) counts.set(r.ats, (counts.get(r.ats) ?? 0) + 1);
+/**
+ * Where a job is applied to: its ATS when it applies on a company site that runs one ("workday"), else the native
+ * platform it was found on ("linkedin", "naukri") (user, 2026-11-10: platform tags on every section).
+ */
+export function platformOf(row: Pick<BoardRow, 'ats' | 'site'>): string {
+  return row.ats ?? row.site;
+}
+
+/** The chip text for a platform: the site's own name for native platforms, the ATS name otherwise. */
+export function platformLabel(p: string): string {
+  return (SITE_LABEL as Record<string, string>)[p] ?? p.charAt(0).toUpperCase() + p.slice(1);
+}
+
+/** Platforms among a tab's jobs (every filter but the platform one), most openings first. */
+export function atsCounts(rows: BoardRow[], tab: BoardTab, f: Filters, now: number, hideWords: string[] = []): Array<{ ats: string; count: number }> {
+  const counts = new Map<string, number>();
+  for (const r of rowsForTab(rows, tab, { ...f, ats: [] }, now, hideWords)) counts.set(platformOf(r), (counts.get(platformOf(r)) ?? 0) + 1);
   return [...counts].map(([ats, count]) => ({ ats, count })).sort((a, b) => b.count - a.count || a.ats.localeCompare(b.ats));
 }
 
@@ -317,4 +338,45 @@ export function extraDetailsFrom(attempts: Attempt[]): Map<string, string> {
     out.set(jobId, a.reason || 'the site asked for details');
   }
   return out;
+}
+
+export interface SiteStats {
+  /** Relevant jobs (product titles) first seen in the period. */
+  added: number;
+  applied: number;
+  byAgent: number;
+  byYou: number;
+}
+
+/**
+ * One platform's numbers for a period (user, 2026-11-10: LinkedIn stats, last 7 / 14 days / month or a date range).
+ * `from`/`to` are epoch ms; jobs added count by when the board first saw them, applications by when they were applied.
+ */
+export function siteStats(rows: BoardRow[], site: Site | 'all', from: number, to: number): SiteStats {
+  const mine = site === 'all' ? rows : rows.filter((r) => r.site === site);
+  const inRange = (t: number | null | undefined) => t !== null && t !== undefined && t >= from && t <= to;
+  const added = mine.filter((r) => isProductTitle(r.title) && inRange(r.firstSeenAt)).length;
+  const applied = mine.filter((r) => r.status === 'applied' && inRange(r.statusAt));
+  const byAgent = applied.filter((r) => r.appliedBy === 'agent').length;
+  return { added, applied: applied.length, byAgent, byYou: applied.length - byAgent };
+}
+
+export interface AgentStats {
+  /** Jobs the agent (or Apply with AI) opened in the period, live runs only. */
+  tried: number;
+  /** Runs that stopped for you or failed (needs_me, failed, no confirmation). */
+  stuck: number;
+  /** Runs left alone on purpose (closed, company site, not appliable). */
+  skipped: number;
+}
+
+/** What the agent did on one platform (or all) in a period: to see where it fails (user, 2026-11-10). */
+export function agentStats(attempts: Attempt[], site: Site | 'all', from: number, to: number): AgentStats {
+  const mine = attempts.filter((a) => a.mode !== 'dry_run' && a.startedAt >= from && a.startedAt <= to
+    && (site === 'all' || siteOfJobId(a.jobId) === site));
+  return {
+    tried: mine.filter((a) => a.outcome !== 'pending').length,
+    stuck: mine.filter((a) => a.outcome === 'needs_me' || a.outcome === 'failed' || (a.outcome as string) === 'no_confirmation').length,
+    skipped: mine.filter((a) => a.outcome === 'skipped').length,
+  };
 }

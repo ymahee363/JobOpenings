@@ -428,3 +428,18 @@ describe('experience: up to your years', () => {
     expect(matchRules(exp(10, 15), r, []).ok).toBe(false);
   });
 });
+
+import { blockedByHistory as blocked2 } from '../src/shared/auto-apply/match';
+describe('retry after a fix (zero human intervention, 2026-11-10)', () => {
+  const att = (over: Record<string, unknown>) => ({ id: 1, jobId: 'linkedin-1', company: 'X', title: 'PM', startedAt: 1000, finishedAt: 1100, mode: 'live', matched: [], answers: [], questions: ['q'], clicked: false, outcome: 'needs_me', reason: 'LinkedIn: stuck', ...over }) as never;
+  const cfg = { fillForms: true, aiApply: true, answers: {}, dryRun: false, signedIn: {} } as never;
+  it('retries a stopped or failed job once a newer build exists', () => {
+    expect(blocked2([att({})], cfg, 5000, 2000)).toBeNull();
+    expect(blocked2([att({ outcome: 'failed' })], cfg, 5000, 2000)).toBeNull();
+  });
+  it('not twice, not after an unconfirmed Apply, not for a sign-in', () => {
+    expect(blocked2([att({}), att({ startedAt: 3000, outcome: 'failed', clicked: true, reason: 'x' })], cfg, 5000, 2000)).not.toBeNull();
+    expect(blocked2([att({ outcome: 'failed', clicked: true })], cfg, 5000, 2000)).not.toBeNull();
+    expect(blocked2([att({ reason: 'example.com wants you to sign in or create an account' })], cfg, 5000, 2000)).not.toBeNull();
+  });
+});

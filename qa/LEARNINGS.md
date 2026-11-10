@@ -151,3 +151,6 @@ What each QA run learned about the sites and application forms. Read before test
   navigation kills the in-page LV_SUBMIT reply, so confirm by URL. No hCaptcha challenge on a normal submit.
 - Naukri applier (2026-11-10): Easy Apply can apply in one click with no questions → /myapply/saveApply with
   `multiApplyResp {"<jobId>":200}`, 'Applied to "<title>"'. The navigation ends the in-page reply; confirm by URL.
+- 2026-11-10 LinkedIn Easy Apply: contact step can have a required "Location (city)*" typeahead (input aria-autocomplete="list", placeholder "Enter city or location", no aria-controls); its role=listbox appears only after typing and a suggestion must be picked. Options from the page behind the <dialog> must never be clicked.
+- 2026-11-10 Jobvite (jobs.jobvite.com/careers/<co>/job/<id>/apply, Nutanix): a "Data Consent" step first (select "Location of Residence and Language", then "Submit"/"I Decline" = privacy acknowledgement); the application form draws after it, a moment later.
+- 2026-11-10 Keka (<co>.keka.com/careers/jobdetails/<id>): "Apply for this job" button; one-page form on the same page, no iframe.

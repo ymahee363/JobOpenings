@@ -40,8 +40,18 @@ async function runCaptchaFormApply(deps: FlowDeps, mode: FlowMode, plan: Workday
   const filledAll: ApplyReport['answers'] = [];
   const base = () => ({ clicked, answers: filledAll.slice(0, 30) });
   const frame = async () => (await deps.frames())[0] ?? 0;
-  const call = async <T>(msg: Record<string, unknown>): Promise<T & { ok?: boolean; error?: string }> =>
-    (await deps.send(await frame(), msg)) as unknown as T & { ok?: boolean; error?: string };
+  // A read (STATE) that finds no listener is asked again after a moment: on 2026-11-10 (eloelo.keka.com) the whole
+  // run failed with "Could not establish connection. Receiving end does not exist." on the STATE read right after
+  // the pre-submit check (the PC had slept). Presses (START, FILL, SUBMIT) are never repeated.
+  const call = async <T>(msg: Record<string, unknown>): Promise<T & { ok?: boolean; error?: string }> => {
+    try {
+      return (await deps.send(await frame(), msg)) as unknown as T & { ok?: boolean; error?: string };
+    } catch (e) {
+      if (!String(msg.type).endsWith('_STATE') || !/receiving end does not exist|message channel closed/i.test(String(e))) throw e;
+      await deps.sleep(2_000);
+      return (await deps.send(await frame(), msg)) as unknown as T & { ok?: boolean; error?: string };
+    }
+  };
   const host = hostOf(url);
 
   let state = await call<ZhState>({ type: `${site.prefix}_STATE` });
@@ -122,7 +132,7 @@ async function runCaptchaFormApply(deps: FlowDeps, mode: FlowMode, plan: Workday
     const stop = await deps.mayClick();
     if (stop) return report('stopped', { ...base(), reason: stop });
     clicked = true;
-    say('pressing ${site.submitLabel}');
+    say(`pressing ${site.submitLabel}`);
     const after = await call<ZhState & { moved: boolean }>({ type: `${site.prefix}_SUBMIT` });
     if (after.page === 'submitted') return report('applied', { ...base(), reason: `${host} confirmed the application` });
     const captchaWrong = after.errors.some((e) => /captcha|image text|security/i.test(e)) || (after.captcha && !after.captchaFilled);

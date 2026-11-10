@@ -5,11 +5,12 @@
  * or stop there for you ('fill' mode).
  */
 import type { InState } from '../../content/ats/indeed';
-import { buildAnswers, fillPageAnswers, findingLabels, preSubmitCheck, waitBeforeSubmit, type AnswerHistory, type FlowDeps, type FlowMode } from '../ai-apply/flow';
+import { buildAnswers, fillPageAnswers, findingLabels, fixPageErrors, preSubmitCheck, waitBeforeSubmit, type AnswerHistory, type FlowDeps, type FlowMode } from '../ai-apply/flow';
 import type { FrameFormData } from '../ai-apply/types';
 import type { ApplyReport } from '../auto-apply/runner';
 
-const MAX_STEPS = 15;
+// Long Indeed flows (contact, location, resume, several question pages, documents, review) passed 15 (2026-11-10).
+const MAX_STEPS = 25;
 
 const report = (result: ApplyReport['result'], over: Partial<ApplyReport> = {}): ApplyReport => ({
   result, clicked: false, reason: '', questions: [], answers: [], dialogs: [], ...over,
@@ -41,10 +42,13 @@ export async function runIndeedApply(deps: FlowDeps, mode: FlowMode, job: { titl
     const stop = await deps.mayClick();
     if (stop) return report('stopped', { reason: stop });
     say('pressing "Apply now"');
+    // Indeed's Apply can be pressed before the page listens, and its application opens a moment later (2026-11-10,
+    // WarpDrive: "no application step found"): press again while still on the job, wait up to 40 s in all.
     await call({ type: 'IN_START' }).catch(() => null);
-    for (let i = 0; i < 20 && !['step', 'review', 'submitted'].includes(s.page); i += 1) {
+    for (let i = 0; i < 40 && !['step', 'review', 'submitted'].includes(s.page); i += 1) {
       await deps.sleep(1_000);
       s = await state();
+      if ((i === 10 || i === 22) && s.page === 'job') await call({ type: 'IN_START' }).catch(() => null);
     }
   }
   if (s.page === 'submitted') return report('applied', { reason: 'Indeed shows the application as sent' });
@@ -53,10 +57,23 @@ export async function runIndeedApply(deps: FlowDeps, mode: FlowMode, job: { titl
 
   const history: AnswerHistory = new Map();
   let lastStep = '';
+  let lastMoved = true;
+  let stepData: FrameFormData | null = null;
+  let stepAnswers: Awaited<ReturnType<typeof buildAnswers>>['answers'] = [];
+  /** The error-fix agent on this step: re-read the form and fix what Indeed rejected (2026-11-10). */
+  const fixErrors = async () => {
+    const fid = await frame();
+    const again = await deps.send(fid, { type: 'EXTRACT_FORM' }).catch(() => null) as { ok?: boolean; data?: FrameFormData } | null;
+    const data = again?.ok && again.data ? { ...again.data, frameId: fid } as FrameFormData : stepData;
+    if (!data) return;
+    say('fixing the answers Indeed rejected');
+    await fixPageErrors(deps, data, stepAnswers).catch(() => []);
+  };
   for (let n = 0; n < MAX_STEPS; n += 1) {
     s = await state();
     if (s.page === 'submitted') return report('applied', { ...base(), reason: 'Indeed confirmed: application submitted' });
-    if (s.step === lastStep && s.page === 'step') {
+    // Stuck only when Continue really did not move (2026-11-10: "stuck on questions-module/questions/1").
+    if (s.step === lastStep && s.page === 'step' && !lastMoved) {
       return report('needs_me', { ...base(), reason: `Indeed: stuck on ${s.step}${s.errors.length ? `: ${s.errors.join('; ')}` : ''}`.slice(0, 300), questions: s.errors.length ? s.errors : [`Finish the "${s.step}" step on Indeed`] });
     }
     lastStep = s.step;
@@ -88,10 +105,18 @@ export async function runIndeedApply(deps: FlowDeps, mode: FlowMode, job: { titl
         const data = { ...extracted.data, frameId: fid } as FrameFormData;
         const open = data.fields.filter((f) => !f.current_value.trim());
         if (open.length) {
-          const built = await buildAnswers({ ...data, fields: open }, deps, '', true);
+          let built: Awaited<ReturnType<typeof buildAnswers>>;
+          try {
+            built = await buildAnswers({ ...data, fields: open }, deps, '', true);
+          } catch (e) {
+            return report('needs_me', { ...base(), reason: `Indeed: the AI could not answer (${String(e).slice(0, 150)})`, questions: open.filter((f) => f.required).map((f) => f.label) });
+          }
           await deps.saveMemory(built.memory);
           const answers = built.answers.filter((a) => a.answer && a.answer !== 'NEEDS_USER_INPUT');
           await fillPageAnswers(deps, { ...data, fields: open }, answers);
+          stepData = data;
+          stepAnswers = answers;
+          await fixErrors();
           filledAll.push(...answers.map((a) => ({ question: open.find((f) => f.id === a.field_id)?.label ?? '', answer: a.answer })));
           const missing = open.filter((f) => f.required && f.type !== 'file' && !answers.some((a) => a.field_id === f.id)).map((f) => f.label);
           if (missing.length) return report('needs_me', { ...base(), reason: `Indeed: no answer for ${missing.join('; ')}`.slice(0, 300), questions: missing });
@@ -115,14 +140,25 @@ export async function runIndeedApply(deps: FlowDeps, mode: FlowMode, job: { titl
       if (stop) return report('stopped', { ...base(), reason: stop });
       clicked = true;
       say('pressing "Submit your application"');
-      const after = await call<InState & { moved: boolean }>({ type: 'IN_SUBMIT' });
+      let after = await call<InState & { moved: boolean }>({ type: 'IN_SUBMIT' });
+      if (after.page !== 'submitted' && after.errors.length) {
+        await fixErrors();
+        after = await call<InState & { moved: boolean }>({ type: 'IN_SUBMIT' });
+      }
       if (after.page === 'submitted') return report('applied', { ...base(), reason: 'Indeed confirmed: application submitted' });
       return report(after.errors.length ? 'needs_me' : 'no_confirmation', { ...base(), reason: after.errors.length ? `Indeed rejected Submit: ${after.errors.join('; ')}`.slice(0, 300) : 'Indeed: pressed Submit; no confirmation seen', questions: after.errors });
     }
 
     const stop = await deps.mayClick();
     if (stop) return report('stopped', { ...base(), reason: stop });
-    const next = await call<InState & { moved: boolean }>({ type: 'IN_CONTINUE' }).catch(() => null);
+    let next = await call<InState & { moved: boolean }>({ type: 'IN_CONTINUE' }).catch(() => null);
+    if (next && !next.moved) {
+      await fixErrors();
+      next = await call<InState & { moved: boolean }>({ type: 'IN_CONTINUE' }).catch(() => null);
+    }
+    lastMoved = next?.moved ?? true;
+    stepData = null;
+    stepAnswers = [];
     if (next && !next.moved && next.errors.length) {
       return report('needs_me', { ...base(), reason: `Indeed: ${next.errors.join('; ')}`.slice(0, 300), questions: next.errors });
     }

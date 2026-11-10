@@ -992,7 +992,7 @@ function getScopedOptionElements(
         "[role='listbox'] li",
         "[role='menu'] li"
       ].join(",")
-    ).filter(isRendered);
+    ).filter(isRendered).filter(node => nearField(el, node));
 
   if (unscoped.length) {
     return unscoped;
@@ -1038,7 +1038,19 @@ function getScopedOptionElements(
           textOf(node).length > 0
       )
     )
-    .filter(isRendered);
+    .filter(isRendered)
+    .filter(node => nearField(el, node));
+}
+
+/**
+ * Whether a page-wide option can belong to this field. A field inside a modal (LinkedIn's Easy Apply <dialog>) only
+ * takes options inside that modal or in a portaled role=listbox: the page behind it has its own menus and
+ * [data-value] items. Seen 2026-11-10: "Location (city)*" answered "Bengaluru, Karnataka, India" went to the tag-input
+ * path, which clicked a page item outside the dialog; the dialog closed and the run looped to "more than 12 steps".
+ */
+export function nearField(el: Element, node: Element): boolean {
+  const modal = el.closest("dialog, [role='dialog'], [aria-modal='true']");
+  return !modal || modal.contains(node) || !!node.closest("[role='listbox']");
 }
 
 /**
@@ -2412,9 +2424,31 @@ function isCaptchaFrame(): boolean {
     /(^|\.)hcaptcha\.com$/.test(h) || /(^|\.)challenges\.cloudflare\.com$/.test(h);
 }
 
+/**
+ * Checkboxes or radios with no `name` that form one question (LinkedIn Easy Apply, 2026-11-10, Wing Assistant:
+ * "Which industries have you worked in? (Select all that apply.)*" is a <fieldset> of 14 checkboxes with no name,
+ * no aria-label and empty <label>s, each option's text in a sibling <p>). Give each such group a shared name, so the
+ * engine reads it as one question with its options (and fills it) instead of 14 unlabeled boxes.
+ */
+function nameOrphanGroups(root: ParentNode = document): void {
+  const boxes = root.querySelectorAll<HTMLElement>("fieldset, [role='group'], [role='radiogroup']");
+  let n = 0;
+  for (const box of Array.from(boxes)) {
+    for (const type of ["checkbox", "radio"]) {
+      const orphans = Array.from(box.querySelectorAll<HTMLInputElement>(`input[type="${type}"]:not([name])`))
+        .filter((i) => i.closest("fieldset, [role='group'], [role='radiogroup']") === box);
+      if (orphans.length < 2) continue;
+      const name = `__group_${box.id || orphans[0]!.id || n}`;
+      n += 1;
+      for (const i of orphans) i.setAttribute("name", name);
+    }
+  }
+}
+
 export async function extractForm() {
 
   if (isCaptchaFrame()) return { url: location.href, title: document.title, page_text: "", fields: [] };
+  try { nameOrphanGroups(); } catch { /* best effort */ }
 
   // Naukri's apply questions: one chatbot question at a time.
   const chat = naukriChatForm();
@@ -4837,15 +4871,47 @@ function suggestionContainerFor(
     return null;
   }
 
-  return (
+  const near =
     [...wrapper.querySelectorAll<HTMLElement>("*")].find(
       node =>
         !node.contains(el) &&
         SUGGESTION_CONTAINER_PATTERN.test(
           typeof node.className === "string" ? node.className : ""
         )
-    ) || null
-  );
+    ) || null;
+  if (near) return near;
+
+  // A typeahead that says so (aria-autocomplete="list", role=combobox) but whose list is only added after typing,
+  // elsewhere in the page: LinkedIn Easy Apply's "Location (city)*" (generated classes, no aria-controls until
+  // typed; 2026-11-10, "stuck on 16 First name* | ... Mobile phone number*" after a typed, unpicked city). Its list
+  // is found after typing (see liveSuggestionList); the field itself stands in until then.
+  if (isDeclaredTypeahead(el)) return el;
+
+  return null;
+}
+
+/** A text box that declares a suggestion list: aria-autocomplete list/both, or role=combobox. */
+export function isDeclaredTypeahead(el: HTMLInputElement): boolean {
+  return /^(list|both)$/i.test(el.getAttribute("aria-autocomplete") || "") || el.getAttribute("role") === "combobox";
+}
+
+/**
+ * The suggestion list a declared typeahead shows once typed into: the list its aria-controls / aria-owns /
+ * aria-activedescendant points at by now, else the rendered role=listbox nearest to it (inside its modal, or the
+ * whole page when it has none). Null while none is shown.
+ */
+export function liveSuggestionList(el: HTMLInputElement): HTMLElement | null {
+  const root = ownerRoot(el);
+  const id = el.getAttribute("aria-controls") || el.getAttribute("aria-owns");
+  const byId = id ? root.getElementById(id) : null;
+  if (byId) return byId;
+  const active = el.getAttribute("aria-activedescendant");
+  const activeList = active ? root.getElementById(active)?.closest<HTMLElement>("[role='listbox']") : null;
+  if (activeList) return activeList;
+  const lists = queryAllDeep("[role='listbox']").filter(l => isRendered(l) && nearField(el, l) && !l.contains(el));
+  if (!lists.length) return null;
+  const y = el.getBoundingClientRect().bottom;
+  return lists.sort((a, b) => Math.abs(a.getBoundingClientRect().top - y) - Math.abs(b.getBoundingClientRect().top - y))[0]!;
 }
 
 /**
@@ -4888,8 +4954,10 @@ async function pickSuggestion(
 
   const target = normalizeText(value);
 
+  // The field itself stands in for a list that only appears after typing (suggestionContainerFor).
+  const list = (): HTMLElement | null => container === el ? liveSuggestionList(el) : container;
   const candidates = (): HTMLElement[] =>
-    [...container.querySelectorAll<HTMLElement>("li, [role='option'], div, a, button")]
+    [...(list()?.querySelectorAll<HTMLElement>("li, [role='option'], div, a, button") ?? [])]
       .filter(node =>
         node.children.length === 0 ||
         node.getAttribute("role") === "option" ||

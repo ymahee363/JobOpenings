@@ -95,6 +95,11 @@ body {
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 0; }
 .stats div { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; }
 .stats dt { color: var(--muted); font-size: 12px; }
+.stats-table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; font-variant-numeric: tabular-nums; display: block; overflow-x: auto; }
+.stats-table th, .stats-table td { border-bottom: 1px solid var(--border); padding: 6px 8px; text-align: right; white-space: nowrap; }
+.stats-table th[scope="row"], .stats-table thead th:first-child { text-align: left; }
+.stats-table thead th { color: var(--muted); font-size: 12px; font-weight: 600; }
+.stats-table tr.total th, .stats-table tr.total td { font-weight: 700; border-top: 2px solid var(--border); }
 .stats dd { margin: 2px 0 0; font-size: 20px; font-weight: 600; }
 
 .log { list-style: none; padding: 0; margin: 0; max-height: 260px; overflow: auto; font-size: 13px; }

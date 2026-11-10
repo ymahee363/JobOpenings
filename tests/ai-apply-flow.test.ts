@@ -229,6 +229,25 @@ describe('runAiApply', () => {
     expect(r.reason).toMatch(/did not move on/);
   });
 
+  // Jobvite (Nutanix, 2026-11-10): after the first step the next page had no fields for a moment, and the run
+  // ended with "the form disappeared on page 2". It now waits for the page to draw its form.
+  it('waits for the next page to draw its form instead of calling it gone', async () => {
+    const page = fakePage([contactPage(), questionPage(), { fields: [] }]);
+    let blank = 0;
+    const engine = page.engine;
+    const d = deps({ ...page, engine } as ReturnType<typeof fakePage>, {
+      send: async (_f, msg) => {
+        const r = await engine(msg);
+        // Three empty reads right after Next, then the questions page.
+        if (msg.type === 'EXTRACT_FORM' && page.clicks().length === 1 && blank < 3) { blank += 1; return { ok: true, data: { url: 'https://jobs.example.com/apply', title: '', page_text: '', fields: [] } }; }
+        return r;
+      },
+    });
+    const r = await run(d, 'fill');
+    expect(r.reason).not.toMatch(/disappeared/);
+    expect(r.result).toBe('ready');
+  });
+
   it('never sends a password to the LLM', async () => {
     const d = deps(fakePage([]));
     const built = await buildAnswers({ url: 'u', title: 't', page_text: '', fields: [f('p', 'Password', { type: 'password' }), f('x', 'Favourite tool')] }, d, '', false);

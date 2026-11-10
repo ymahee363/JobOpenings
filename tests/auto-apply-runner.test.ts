@@ -273,3 +273,14 @@ describe('AI usage limit: pause and carry on when it is back', () => {
     expect(CollectorMessage.safeParse(msg).success).toBe(true);
   });
 });
+
+import { manualOutcome } from '../src/shared/auto-apply/runner';
+describe('manual Apply with AI outcome', () => {
+  // 2026-11-10: LinkedIn company-site jobs were logged as "AI apply failed"; LinkedIn applies to Easy Apply only.
+  it('skips a company-site job instead of failing it', () => {
+    expect(manualOutcome('external')).toBe('skipped');
+    expect(manualOutcome('closed')).toBe('skipped');
+    expect(manualOutcome('needs_me')).toBe('needs_me');
+    expect(manualOutcome('error' as never)).toBe('failed');
+  });
+});

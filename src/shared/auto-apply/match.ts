@@ -1,3 +1,4 @@
+import { BUILT_AT } from '../build-info';
 import { isForeignOnsite } from '../foreign';
 /** Which iimjobs jobs the agent applies to, and in what order (PRD-auto-apply AR-1, AR-2, AR-3, AR-14, AR-16). */
 import { SITE_LABEL, titleHasHiddenWord } from '../board';
@@ -97,10 +98,20 @@ export function signInHostOf(reason: string): string | null {
   return /wants you to log in or create an account/.test(reason) ? '' : null;
 }
 
-export function blockedByHistory(history: Attempt[], config: AgentConfig, now: number): string | null {
+export function blockedByHistory(history: Attempt[], config: AgentConfig, now: number, builtAt = BUILT_AT): string | null {
   if (!history.length) return null;
   const last = history.reduce((a, b) => (b.startedAt > a.startedAt ? b : a));
   if (history.some((a) => a.outcome === 'applied' || a.outcome === 'already_applied')) return 'applied';
+  // Zero human intervention (2026-11-10): a job that stopped for you or failed under an older build is tried once
+  // more with the fixed code (the auto fixer ships fixes as new builds). Never when Apply was already pressed
+  // without confirmation, a site needs your sign-in, or the job was skipped on purpose.
+  if (builtAt && last.startedAt < builtAt && (last.outcome === 'needs_me' || last.outcome === 'failed')
+    && !last.clicked && signInHostOf(last.reason) === null
+    // Not when it asked for something only you can make (a Loom/video walkthrough): CLANX was retried 5 times on
+    // 2026-11-10, once per build.
+    && !last.questions.some((q) => /\bloom\b|video|record(ed|ing)? (a|an|your)|walk(ing)? us through/i.test(q))
+    // Once per failure: the same reason twice means the new build did not fix it (Wing Assistant, 7 retries).
+    && history.filter((a) => a.reason === last.reason).length < 2) return null;
   switch (last.outcome) {
     case 'pending': return 'in progress';
     case 'skipped': return last.reason || 'skipped';

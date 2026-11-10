@@ -115,12 +115,16 @@ export function staleAttempts(attempts: Attempt[], now: number): Attempt[] {
 export function agentHeadline(
   config: { autoApply: boolean; dryRun: boolean; dailyCap: number },
   state: { nextRunAt: number | null; haltedAt: number | null; haltReason: string | null },
-  refreshHalted: boolean, appliedToday: number, formatTime: (t: number) => string,
+  refreshHalted: boolean, appliedToday: number | { agent: number; me: number }, formatTime: (t: number) => string,
 ): { text: string; tone: 'ok' | 'warn' | 'off' } {
   if (!config.autoApply) return { text: 'Auto-apply: Off', tone: 'off' };
   if (refreshHalted) return { text: 'Auto-apply: Stopped (captcha)', tone: 'warn' };
   if (state.haltedAt !== null) return { text: `Auto-apply: Stopped (${state.haltReason ?? 'halted'})`, tone: 'warn' };
-  const parts = [`Auto-apply: On${config.dryRun ? ' (dry run)' : ''}`, `${appliedToday} applied today`];
+  // Total applied today, split by the agent and by you (user, 2026-11-10).
+  const today = typeof appliedToday === 'number'
+    ? `${appliedToday} applied today`
+    : `${appliedToday.agent + appliedToday.me} applied today (agent ${appliedToday.agent} · you ${appliedToday.me})`;
+  const parts = [`Auto-apply: On${config.dryRun ? ' (dry run)' : ''}`, today];
   if (state.nextRunAt !== null) parts.push(`next ${formatTime(state.nextRunAt)}`);
   return { text: parts.join(' · '), tone: 'ok' };
 }
