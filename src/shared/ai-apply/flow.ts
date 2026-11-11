@@ -29,7 +29,7 @@ import type { AnswerEntry } from '../auto-apply/config';
 import type { ApplyReport } from '../auto-apply/runner';
 import {
   directMapAnswer, educationEntryAnswer, enrichEntryFieldLabel, experienceEntryAnswer, findPendingQuestions, isAlreadyFilled,
-  isCoverLetterLabel, isJoinWhenQuestion, standingAnswer, isResumeLabel, isValidAgainstOptions, linkFitsLabel, nextDayAnswer, pageFingerprint, verifyAndCorrectAnswers,
+  gpaFromProfile, gpaOption, isCoverLetterLabel, isGpaLabel, isJoinWhenQuestion, standingAnswer, isResumeLabel, isValidAgainstOptions, linkFitsLabel, nextDayAnswer, pageFingerprint, verifyAndCorrectAnswers,
 } from './answer-rules';
 import { applyChoiceField, looksLikeApplicationForm, parseApplyChoice, type ApplyCandidate } from './apply-button';
 import { classifyField, directKindAnswer, normalizeForInput, withKindHint, type NormalizeContext } from './input-kinds';
@@ -383,7 +383,7 @@ export async function buildAnswers(
       const n = f ? normalizeForInput(f, a.answer, kindCtx) : null;
       return n?.ok && n.value !== a.answer ? { ...a, answer: n.value } : a;
     });
-    llm = verifyAndCorrectAnswers(forLLM, shaped, profile);
+    llm = verifyAndCorrectAnswers(forLLM, shaped, profile, new Date(deps.now()));
   }
 
   const byId = new Map([...local, ...llm].map((a) => [a.field_id, a]));
@@ -397,6 +397,12 @@ export async function buildAnswers(
       : standing
         ? { ...(byId.get(f.id) ?? { field_id: f.id }), answer: standing, confidence: 1, source: 'profile', needs_user_input: false } as Answer
         : byId.get(f.id);
+    // CGPA / GPA: your profile's, and only on a required field; an optional one stays empty (user, 2026-11-11).
+    if (isGpaLabel(f.label) && byId.get(f.id)?.source !== 'existing') {
+      const gpa = gpaFromProfile(profile);
+      if (!f.required) return undefined;
+      if (gpa) return { ...(byId.get(f.id) ?? { field_id: f.id }), answer: f.options.length ? gpaOption(f.options, gpa) ?? fitToOptions(f, gpa) ?? gpa : gpa, confidence: 1, source: 'profile', needs_user_input: false } as Answer;
+    }
     if (!a) return a;
     // A site's link box ("Naukri URL") with a link to another site (your portfolio): left empty, or yours to fill
     // when required (user, 2026-11-10).
@@ -601,7 +607,7 @@ async function autoFixErrors(deps: FlowDeps, data: FrameFormData, instruction: s
         const n = f ? normalizeForInput(f, a.answer, ctx) : null;
         return n?.ok ? { ...a, answer: n.value } : a;
       });
-      for (const a of verifyAndCorrectAnswers(forAi, shaped, deps.profile)) {
+      for (const a of verifyAndCorrectAnswers(forAi, shaped, deps.profile, new Date(deps.now()))) {
         const t = triedOf(a.field_id);
         if (!a.answer || a.answer === 'NEEDS_USER_INPUT' || t.has(a.answer)) continue;
         sets.push(a);

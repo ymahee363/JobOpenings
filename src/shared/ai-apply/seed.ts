@@ -54,6 +54,13 @@ export function seedPatch(seed: AiSeed, target: SeedTarget): SeedPatch {
     if (next.experience.some((e) => !e.description?.trim() && seedDesc.get(e.company.trim().toLowerCase())?.trim())) {
       next = { ...next, experience: next.experience.map((e) => (e.description?.trim() ? e : { ...e, description: seedDesc.get(e.company.trim().toLowerCase()) || e.description })) };
     }
+    // Education facts the saved entry does not have yet (CGPA, added 2026-11-11) come from the seed's same entry.
+    const seedEdu = seeded.education[0] as Record<string, unknown> | undefined;
+    const savedEdu = next.education[0] as Record<string, unknown> | undefined;
+    if (seedEdu && savedEdu) {
+      const add = Object.fromEntries(Object.entries(seedEdu).filter(([k, v]) => v !== undefined && v !== null && v !== '' && savedEdu[k] === undefined));
+      if (Object.keys(add).length) next = { ...next, education: [{ ...savedEdu, ...add }, ...next.education.slice(1)] };
+    }
     // Fields the saved profile does not have yet (address, languages… added 2026-11-05) come from the seed;
     // anything already saved is kept.
     const saved = next as unknown as Record<string, unknown>;

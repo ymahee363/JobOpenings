@@ -685,7 +685,10 @@ export function parseNoticePeriodDays(
 // possible", i.e. tomorrow, which also sidesteps same-day dates most
 // ATSs reject as a start date anyway.
 export function noticePeriodStartDate(
-  noticePeriod: string
+  noticePeriod: string,
+  // The run's clock (FlowDeps.now), not the machine's: a start date read the real clock and broke the input-type
+  // tests once their fixed date passed (2026-11-11).
+  now: Date = new Date()
 ): string | undefined {
   const days = parseNoticePeriodDays(noticePeriod);
 
@@ -693,7 +696,7 @@ export function noticePeriodStartDate(
     return undefined;
   }
 
-  const date = new Date();
+  const date = new Date(now.getTime());
   date.setDate(date.getDate() + Math.max(days, 1));
 
   const yyyy = date.getFullYear();
@@ -798,7 +801,8 @@ export function verifyAndCorrectAnswers(
       isStartDateField(field.label)
     ) {
       const computed = noticePeriodStartDate(
-        profile.notice_period
+        profile.notice_period,
+        now
       );
 
       if (computed) {
@@ -990,4 +994,26 @@ export function standingAnswer(f: Pick<FormField, 'label' | 'type' | 'options'>,
     return f.type === 'checkbox' && !f.options.length ? 'Yes' : (f.options.find((o) => /^(yes|i agree|agree|i accept|accept|i consent)/i.test(o)) ?? 'Yes');
   }
   return null;
+}
+
+/** A CGPA / GPA question ("CGPA", "Undergraduate GPA", "Grade point average"); not a GPA scale or a GMAT. */
+export function isGpaLabel(label: string): boolean {
+  return /\bc?gpa\b|grade point average|cumulative grade/i.test(label) && !/\bscale\b|out of what|maximum/i.test(label);
+}
+
+/** Your CGPA from the profile's first education entry (`gpa` or `cgpa`), or null. */
+export function gpaFromProfile(profile: Pick<CandidateProfile, 'education'>): string | null {
+  const e = profile.education?.[0] as { gpa?: unknown; cgpa?: unknown } | undefined;
+  const v = String(e?.gpa ?? e?.cgpa ?? '').trim();
+  return v || null;
+}
+
+/** On a choice field, the option whose range holds the GPA ("7.0 - 8.0", "7 to 7.99"), else null. */
+export function gpaOption(options: string[], gpa: string): string | null {
+  const g = Number(gpa);
+  if (!Number.isFinite(g)) return null;
+  return options.find((o) => {
+    const m = /(\d+(?:\.\d+)?)\s*(?:-|–|to)\s*(\d+(?:\.\d+)?)/.exec(o);
+    return !!m && Number(m[1]) <= g && g <= Number(m[2]);
+  }) ?? options.find((o) => o.trim() === gpa) ?? null;
 }
