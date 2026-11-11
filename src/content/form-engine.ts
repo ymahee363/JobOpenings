@@ -44,6 +44,7 @@ import { handleKekaMessage } from './ats/keka';
 import { handleIndeedMessage } from './ats/indeed';
 import { handleLeverMessage } from './ats/lever';
 import { handleNaukriMessage } from './ats/naukri';
+import { handleWellfoundMessage } from './ats/wellfound';
 import { handleLinkedinMessage } from './ats/linkedin';
 import { accountStep, watchAfterPress } from './account';
 import { isSideFormContext, pickClearApplyCandidate, scoreApplyCandidate, type ApplyCandidate } from '../shared/ai-apply/apply-button';
@@ -7805,6 +7806,11 @@ if (firstEngineInFrame()) chrome.runtime.onMessage.addListener(
     // Naukri's own applier (src/content/ats/naukri.ts): NK_* messages.
     if (typeof message?.type === "string" && message.type.startsWith("NK_")) {
       return handleNaukriMessage(message, sendResponse);
+    }
+
+    // Wellfound's own applier (src/content/ats/wellfound.ts): WF_* messages.
+    if (typeof message?.type === "string" && message.type.startsWith("WF_")) {
+      return handleWellfoundMessage(message, sendResponse);
     }
 
     // Lever's own applier (src/content/ats/lever.ts): LV_* messages.

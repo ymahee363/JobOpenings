@@ -576,7 +576,7 @@ async function pageVerdictByScript(tabId: number, site: AgentSite, waitMs = 15_0
       func: (selector: string) => {
         const clean = (s: string | null) => (s ?? '').replace(/\s+/g, ' ').trim();
         const texts = [...document.querySelectorAll<HTMLElement>(selector)].filter((b) => b.getClientRects().length > 0).map((b) => clean(b.textContent));
-        if (texts.some((t) => /^(applied|application sent!?|you applied|application submitted)$/i.test(t))) return 'applied';
+        if (texts.some((t) => /^(applied|application sent!?|you applied|application submitted|undo\s*·\s*\d+:\d{2})$/i.test(t))) return 'applied';
         if (/no longer (accepting|available|active)|job (has )?expired|this job (is|has been) closed/i.test(clean(document.body?.innerText ?? '').slice(0, 5000))) return 'closed';
         return 'unknown';
       },
@@ -616,6 +616,13 @@ async function runInAgentTabInner(url: string, req: ApplyRequest): Promise<Apply
     if (!jobPageOf(landed.href)) return agentFail('closed', 'redirected away from the job page');
     if (await isHalted()) return agentFail('captcha', 'halted while loading');
 
+    // Wellfound's Apply opens an application form with the employer's questions: its own applier answers them
+    // (src/shared/ats/wellfound-flow.ts), so the one-click agent never fills that form from the answer bank.
+    if (page.site === 'wellfound' && req.aiApply) {
+      const ai = await runAi(tabId, landed.href, req.dryRun ? 'preview' : req.aiSubmit ? 'submit' : 'fill', { agent: true });
+      keepOpen = ai.keepOpen;
+      return ai.report;
+    }
     const { jobId } = jobPageOf(landed.href)!;
     const token = newToken();
     const run: AgentRun = { tabId, token, jobId, sent: false, clicked: false, resolve: () => undefined };

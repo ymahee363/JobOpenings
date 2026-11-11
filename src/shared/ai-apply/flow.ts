@@ -22,6 +22,7 @@ import { isIndeedUrl, runIndeedApply } from '../ats/indeed-flow';
 import { runLeverApply } from '../ats/lever-flow';
 import { isNaukriJobUrl, runNaukriApply } from '../ats/naukri-flow';
 import { isLinkedinJobUrl, runLinkedinApply } from '../ats/linkedin-flow';
+import { isWellfoundJobUrl, runWellfoundApply } from '../ats/wellfound-flow';
 import type { WorkdayPlan } from '../../content/ats/workday';
 import { findAnswer } from '../auto-apply/answers';
 import type { AnswerEntry } from '../auto-apply/config';
@@ -437,6 +438,11 @@ async function platformApplier(deps: FlowDeps, opts: FlowOptions): Promise<Apply
     deps.status?.('Naukri: using the Naukri applier');
     const r = await runNaukriApply(deps, opts.mode, { title: opts.job.title, company: opts.job.company });
     if (r.result !== 'external') return r;
+  }
+  // Wellfound's application form (custom questions, "Send application"): its own applier.
+  if (isWellfoundJobUrl(url)) {
+    deps.status?.('Wellfound: using the Wellfound applier');
+    return runWellfoundApply(deps, opts.mode, { title: opts.job.title, company: opts.job.company }, url);
   }
   if (!deps.workdayPlan) return null;
   const ats = detectAts(url);

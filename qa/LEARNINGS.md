@@ -55,6 +55,12 @@ What each QA run learned about the sites and application forms. Read before test
 ### Wellfound
 
 - `/jobs/<id>-<slug>`; `button[class*="applyButton"]`. Applied state not yet seen.
+- 2026-11-11 (form opened and cancelled, nothing sent): Apply opens a react-modal (`.ReactModal__Content`) with
+  `textarea[name^="customQuestionAnswers["]` questions (0 to 8+, required ones end in "*") and
+  `button[data-test="JobApplicationModal--SubmitButton"]` "Send application". Opening it sends nothing. The modal
+  appears before its questions render; a click right after load can do nothing. A taken-down job is a 404 page.
+  Own applier: `src/shared/ats/wellfound-flow.ts`. Real send on SciSpace (2026-11-11): after "Send application" the
+  modal stays open with its form gone and both apply buttons read "Undo · 4:39" (5-minute undo window; never press it).
 
 ### Indeed / Cutshort / foundit
 

@@ -957,6 +957,13 @@ export function standingAnswer(f: Pick<FormField, 'label' | 'type' | 'options'>,
     if (!f.options.length) return '5';
     return f.options.find((o) => /(^|\D)5(\D|$)/.test(o) && !/\b(15|25|50)\b/.test(o)) ?? f.options.find((o) => { const m = /(\d+)\s*(?:-|to|–)\s*(\d+)/.exec(o); return !!m && +m[1]! <= 5 && 5 <= +m[2]!; }) ?? null;
   }
+  // A free-text self-rating ("RATE YOURSELF ON A SCALE OF (0-5)", Wellfound 2026-11-11): 4 of 5, scaled to the range
+  // given (the AI's own answer on that form; leaving it to the AI stopped a run when the AI did not answer).
+  if (!f.options.length && /self[- ]?rating|rate yourself|on a scale of/i.test(label)) {
+    const range = /(\d+)\s*(?:-|–|to)\s*(\d+)/.exec(label.slice(label.search(/scale|rating|rate/i)));
+    const max = range ? Number(range[2]) : 5;
+    return max > 0 && max <= 100 ? String(Math.round(max * 0.8)) : null;
+  }
   // "Are you currently located in, or open to relocating to …?": Yes.
   if (choice && /open to relocat|willing to relocat|able to relocat|ready to relocat|relocat\w* to|currently (located|based) in .* or|based in .* or (open|willing)/i.test(label)) return 'Yes';
   // LinkedIn's "School" is your college: IIT Guwahati, B.Tech, Civil Engineering.

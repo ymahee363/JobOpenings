@@ -191,7 +191,7 @@ export type PageVerdict = 'can_apply' | 'applied' | 'closed' | 'captcha' | 'logg
 const CAPTCHA_TEXT_RE = /verify (that )?you are (a )?human|are you a robot|captcha/i;
 const CLOSED_TEXT_RE = /no longer (accepting|available|active)|job (has )?expired|this job (is|has been) closed|position (has been )?filled/i;
 /** iimjobs and Naukri "Applied", Instahyre "Application sent!", Wellfound's likely wordings. */
-const APPLIED_RE = /^(applied|application sent!?|you applied|application submitted)$/i;
+const APPLIED_RE = /^(applied|application sent!?|you applied|application submitted|undo\s*·\s*\d+:\d{2})$/i;
 const APPLY_RE = /^apply( now)?$/i;
 const LOGIN_RE = /^(log ?in|sign ?in|register)\b.*apply|^login$/i;
 const EXTERNAL_RE = /company('s)? (site|website)|apply (on|at) /i;
