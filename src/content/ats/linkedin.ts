@@ -77,7 +77,9 @@ export function liState(): LiState {
   const d = dialog();
   if (d) {
     // LinkedIn's field errors ("This field is required") are plain leaf text with generated classes (2026-11-10).
-    const leaf = [...d.querySelectorAll<HTMLElement>('p, span, div')].filter((e) => !e.children.length && /^(this field is required|please (enter|select|make)|enter a (valid|whole|decimal)|.*must be (a|an|between|less|more|greater))/i.test(text(e)));
+    // A numbers-only box rejects "5 years" with "Invalid input" in its helper text (Orbit Verify, 2026-11-11): read
+    // it, so the run fixes the answer instead of stopping as "stuck" with no error.
+    const leaf = [...d.querySelectorAll<HTMLElement>('p, span, div')].filter((e) => !e.children.length && /^(this field is required|invalid input|please (enter|select|make)|enter a (valid|whole|decimal)|.*must be (a|an|between|less|more|greater))/i.test(text(e)));
     const errors = [...new Set([...d.querySelectorAll<HTMLElement>('[role="alert"], [aria-live="assertive"], [class*="error" i], [id^="error-message"]'), ...leaf].filter(shown).map(text).filter((t) => t && t.length < 200))].slice(0, 8);
     // Every step is headed "Apply to <Company>": the progress and the step's own labels tell steps apart (2026-11-10).
     const progress = d.querySelector('progress, [role="progressbar"]');

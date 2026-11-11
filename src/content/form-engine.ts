@@ -470,7 +470,19 @@ function getLabel(el: HTMLElement): string {
       );
 
     if (label) {
-      return textOf(label);
+      const own = textOf(label);
+      // Greenhouse job-boards (SonicWall, 2026-11-11): every upload's <label for> says only "Attach"; the slot's name
+      // ("Resume/CV*", "Cover Letter") is the group's aria-labelledby. Without it no resume slot was found.
+      if (/^(attach|upload|browse|choose( a)? file|select( a)? file|add( a)? file)$/i.test(own)) {
+        const group = el.closest("[role='group'][aria-labelledby]");
+        const name = (group?.getAttribute("aria-labelledby") || "")
+          .split(/\s+/)
+          .map(ref => textOf(ownerRoot(el).getElementById(ref)))
+          .filter(Boolean)
+          .join(" ");
+        if (name) return name;
+      }
+      return own;
     }
   }
 

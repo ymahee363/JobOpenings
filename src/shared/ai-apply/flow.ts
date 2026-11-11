@@ -854,8 +854,11 @@ async function runAiApplyOnce(deps: FlowDeps, opts: FlowOptions): Promise<ApplyR
     return { d, apply, ready: !!apply || (d?.fields.length ?? 0) >= 2 || stable };
   }, (v) => v.ready, opts.settleMs ?? 10_000);
 
-  // An expired job: nothing to press and the page says it is closed. It leaves the board.
-  if (!settled.apply && !(settled.d?.fields.length)) {
+  // An expired job: nothing to press and the page says it is closed. It leaves the board. A careers chat bot's message
+  // box is not an application form (Darwinbox, Pixxel Space, 2026-11-11: "Job not found or closed" with only the bot's
+  // field on the page was reported as "page 1: no Next or Submit button").
+  const appFormNow = !!settled.d && settled.d.fields.length >= 2 && looksLikeApplicationForm(settled.d.fields);
+  if (!settled.apply && !appFormNow) {
     const s = await signals(deps);
     if (s.closed) return report('closed', { reason: 'the job has expired (the page says it is closed)' });
   }

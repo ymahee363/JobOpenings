@@ -1053,12 +1053,12 @@
      true
     ],
     [
-     "Attach",
+     "Resume/CV*",
      "file",
-     false
+     true
     ],
     [
-     "Attach",
+     "Cover Letter",
      "file",
      false
     ],
@@ -1189,12 +1189,12 @@
      true
     ],
     [
-     "Attach",
+     "Resume/CV",
      "file",
      false
     ],
     [
-     "Attach",
+     "Cover Letter",
      "file",
      false
     ],
@@ -1385,9 +1385,9 @@
      true
     ],
     [
-     "Attach",
+     "Resume/CV*",
      "file",
-     false
+     true
     ],
     [
      "LinkedIn Profile",
@@ -1536,12 +1536,12 @@
      false
     ],
     [
-     "Attach",
+     "Resume/CV*",
      "file",
-     false
+     true
     ],
     [
-     "Attach",
+     "Cover Letter",
      "file",
      false
     ],
@@ -1681,9 +1681,9 @@
      true
     ],
     [
-     "Attach",
+     "Resume/CV*",
      "file",
-     false
+     true
     ],
     [
      "LinkedIn Profile Link",
@@ -1781,9 +1781,9 @@
      true
     ],
     [
-     "Attach",
+     "Resume/CV*",
      "file",
-     false
+     true
     ],
     [
      "Do you have a minimum of 3+ years of experience hunting or farming large enterprise customers for a SaaS platform?*",
@@ -2078,12 +2078,12 @@
      true
     ],
     [
-     "Attach",
+     "Resume/CV*",
      "file",
-     false
+     true
     ],
     [
-     "Attach",
+     "Cover Letter",
      "file",
      false
     ],

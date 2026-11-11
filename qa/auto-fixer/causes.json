@@ -25,15 +25,18 @@
       "id": "C3",
       "title": "LinkedIn stuck on a step with no labels",
       "signature": "LinkedIn: stuck on \"\\d* ?Apply to .*\\| \\d+ notifications",
-      "status": "watching",
-      "notes": "Live repro blocked: Claude in Chrome had no permission for linkedin.com."
+      "status": "fixed-unverified",
+      "notes": "2026-11-11 Orbit Verify step 4/5: years/CTC/notice boxes reject \"5 years\" with \"Invalid input\" in the aria-describedby helper; liState saw no error. Live: liState now lists it; numbers alone reach Review (5/5), discarded. Agent end-to-end not run (extension not reloaded).",
+      "fix": "src/content/ats/linkedin.ts liState reads \"Invalid input\" (numbers-only boxes), so fixErrors puts the number alone",
+      "test": "tests/linkedin-invalid-input.test.ts",
+      "fixBuild": 1794418581238
     },
     {
       "id": "C4",
       "title": "General flow reads a chat widget as the form and finds no Next",
       "signature": "page 1: no Next or Submit button",
       "status": "watching",
-      "notes": "Pixxel Space careers site chat (\"Type your message here\"); Nielsen Sports. Not reproduced."
+      "notes": "2026-11-11: reproduced on Pixxel Space (Darwinbox): the job is closed (\"Job not found or closed\") and the only field is the careers bot box. Fixed for closed pages: src/shared/ai-apply/flow.ts closed check now also runs when the page has no application form; test tests/ai-apply-closed-chat.test.ts. Open jobs with a chat widget (Nielsen) not reproduced. Pixxel Space careers site chat (\"Type your message here\"); Nielsen Sports. Not reproduced."
     },
     {
       "id": "C5",
@@ -69,6 +72,36 @@
       "status": "fixed-unverified",
       "notes": "2026-11-11: CGPA added to the profile; answered only on required fields (src/shared/ai-apply/flow.ts, tests/gpa.test.ts). Not yet committed.",
       "fixBuild": 1794414878691
+    },
+    {
+      "id": "C10",
+      "title": "Greenhouse uploads labelled \"Attach\": no resume slot found",
+      "signature": "Attach: Resume/CV is required|Resume/CV is required",
+      "status": "fixed-unverified",
+      "fix": "src/content/form-engine.ts getLabel: an upload labelled Attach/Upload/Browse takes its [role=group] aria-labelledby name; golden.json Greenhouse cases updated",
+      "test": "tests/greenhouse-upload-label.test.ts, tests/golden-forms.test.ts",
+      "notes": "SonicWall job-boards.greenhouse.io 2026-11-11. Live DOM: both inputs map to Resume/CV* and Cover Letter. Not run to Submit (engine could not be loaded: page blocks localhost).",
+      "fixBuild": 1794418581238
+    },
+    {
+      "id": "C11",
+      "title": "The form disappeared on the next page",
+      "signature": "the form disappeared on page d+",
+      "status": "fixed-unverified",
+      "fix": "src/shared/ai-apply/flow.ts waits up to 15 s for the next page to draw its form; commit fba89da",
+      "test": "tests/ai-apply-flow.test.ts",
+      "notes": "39 jobs before fba89da (naukri/indeed/foundit company sites); none since. Not seen live.",
+      "fixBuild": 1794418581238
+    },
+    {
+      "id": "C12",
+      "title": "LinkedIn pre-submit email mismatch on the account email list",
+      "signature": "pre-submit check: contact: Email address",
+      "status": "fixed-unverified",
+      "fix": "src/shared/ai-apply/pre-submit.ts: a drop-down that does not offer the profile email is not a finding; commit 2987823",
+      "test": "tests/pre-submit.test.ts",
+      "notes": "10 jobs before 2987823; none since. Not seen live.",
+      "fixBuild": 1794418581238
     }
   ]
 }
