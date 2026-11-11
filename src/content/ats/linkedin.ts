@@ -21,6 +21,32 @@ export interface LiState {
   errors: string[];
   /** LinkedIn's own success line once applied, e.g. "Application submitted now". */
   message?: string;
+  /** A company-site job: where its "Apply" leads (the company's own page, unwrapped from LinkedIn's redirect). */
+  externalUrl?: string;
+}
+
+/**
+ * Where a company-site job's "Apply" leads. Seen 2026-11-11 (Razorpay, jobs/view/4487990883): an
+ * `a[aria-label="Apply on company website"][target=_blank]` to `linkedin.com/safety/go/?url=<company page>&urlhash=…`,
+ * here job-boards.greenhouse.io. The company page itself is returned, so the run can open it in the same tab (no new
+ * tab, no "leaving LinkedIn" page). Only http(s) addresses off linkedin.com.
+ */
+export function companyApplyUrl(href: string): string | null {
+  try {
+    let u = new URL(href, location.href);
+    if (/(^|\.)linkedin\.com$/i.test(u.hostname)) {
+      const inner = u.searchParams.get('url');
+      if (!inner) return null;
+      u = new URL(inner);
+    }
+    return /^https?:$/.test(u.protocol) && !/(^|\.)linkedin\.com$/i.test(u.hostname) ? u.href : null;
+  } catch {
+    return null;
+  }
+}
+
+function externalApplyLink(): HTMLElement | null {
+  return [...document.querySelectorAll<HTMLElement>('button, a')].find((b) => shown(b) && (/^apply( on company website)?$/i.test(text(b)) || /^apply (to .* )?on company website/i.test(b.getAttribute('aria-label') ?? ''))) ?? null;
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -55,7 +81,7 @@ export function liState(): LiState {
     const errors = [...new Set([...d.querySelectorAll<HTMLElement>('[role="alert"], [aria-live="assertive"], [class*="error" i], [id^="error-message"]'), ...leaf].filter(shown).map(text).filter((t) => t && t.length < 200))].slice(0, 8);
     // Every step is headed "Apply to <Company>": the progress and the step's own labels tell steps apart (2026-11-10).
     const progress = d.querySelector('progress, [role="progressbar"]');
-    const pct = progress?.getAttribute('aria-valuenow') ?? progress?.getAttribute('value') ?? (text(d).match(/\d{1,3}%/) ?? [''])[0];
+    const pct = progress?.getAttribute('aria-valuenow') ?? progress?.getAttribute('value') ?? (text(d).match(/\b\d{1,3}%/) ?? [''])[0];
     const labels = [...d.querySelectorAll('h3, label, legend')].map(text).filter(Boolean).slice(0, 4).join(' | ');
     const step = `${pct ? `${pct} ` : ''}${labels || [...d.querySelectorAll('h2')].map(text).join(' | ')}`.slice(0, 200);
     if (SENT.test(text(d).slice(0, 600)) && !submitButton(d)) return { page: 'submitted', step, errors: [], message: (text(d).match(SENT) ?? [''])[0] };
@@ -72,8 +98,10 @@ export function liState(): LiState {
   const done = text(document.querySelector('main')).slice(0, 4000).match(/application submitted(?: (?:now|\d+ \w+ ago))?|\bapplied \d+ \w+ ago\b/i);
   if (done) return { page: 'submitted', step: '', errors: [], message: done[0] };
   // A company-site job: "Apply" that leaves LinkedIn.
-  if ([...document.querySelectorAll<HTMLElement>('button, a')].some((b) => shown(b) && /^apply( on company website)?$/i.test(text(b)) || /^apply to .* on company website/i.test(b.getAttribute('aria-label') ?? ''))) {
-    return { page: 'external', step: '', errors: [] };
+  const link = externalApplyLink();
+  if (link) {
+    const href = link instanceof HTMLAnchorElement ? link.href : '';
+    return { page: 'external', step: '', errors: [], externalUrl: (href && companyApplyUrl(href)) || undefined };
   }
   return { page: 'unknown', step: '', errors: [] };
 }
@@ -167,6 +195,12 @@ export function handleLinkedinMessage(message: { type: string; name?: string }, 
     case 'LI_RESUME': return reply(Promise.resolve(liResume(String(message.name ?? ''))));
     case 'LI_NEXT': return reply(liNext());
     case 'LI_SUBMIT': return reply(liSubmit());
+    // Open the company's apply page in this tab (a company-site job; 2026-11-11).
+    case 'LI_GO_EXTERNAL': {
+      const url = liState().externalUrl;
+      if (url) setTimeout(() => location.assign(url), 50);
+      return reply(Promise.resolve({ url: url ?? null }));
+    }
     default: return false;
   }
 }

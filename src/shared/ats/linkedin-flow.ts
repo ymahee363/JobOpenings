@@ -53,7 +53,28 @@ export async function runLinkedinApply(deps: FlowDeps, mode: FlowMode, job: { ti
   say(`job location "${where || 'unknown'}": resume ${resumeName}`);
   if (s.page === 'submitted') return report('applied', { reason: 'LinkedIn shows this job as applied' });
   if (s.page === 'closed') return report('closed', { reason: `LinkedIn: ${s.message || 'No longer accepting applications'} (removed from the listing)` });
-  if (s.page === 'external') return report('external', { reason: 'LinkedIn: this job applies on the company site (not applied: LinkedIn Easy Apply only)' });
+  if (s.page === 'external') {
+    const target = s.externalUrl ? new URL(s.externalUrl).hostname : '';
+    if (mode === 'preview' || !s.externalUrl) {
+      return report('external', { reason: `LinkedIn: this job applies on the company site${target ? ` (${target})` : ''}` });
+    }
+    // Open the company's own apply page in this tab, unwrapped from LinkedIn's redirect (2026-11-11), then let the
+    // general flow (or that site's own applier) apply there.
+    const stop = await deps.mayClick();
+    if (stop) return report('stopped', { reason: stop });
+    say(`company-site job: opening ${target}`);
+    await call({ type: 'LI_GO_EXTERNAL' }).catch(() => null);
+    for (let i = 0; i < 20; i += 1) {
+      await deps.sleep(1_000);
+      const now = await deps.currentUrl?.().catch(() => '') ?? '';
+      if (now && !/^https?:\/\/([^/]+\.)?linkedin\.com\//i.test(now)) {
+        // Let the company page load and the cached frame list expire, so the form engine is injected there.
+        await deps.sleep(3_000);
+        break;
+      }
+    }
+    return report('external', { reason: `LinkedIn: company-site job; opened ${target}` });
+  }
   if (s.page === 'job') {
     if (mode === 'preview') return report('can_apply', { reason: 'dry run: LinkedIn Easy Apply job; would open Easy Apply and fill it from your profile' });
     const stop = await deps.mayClick();

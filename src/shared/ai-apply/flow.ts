@@ -443,7 +443,17 @@ async function platformApplier(deps: FlowDeps, opts: FlowOptions): Promise<Apply
   // LinkedIn Easy Apply: its own applier. Company-site jobs are not applied to from LinkedIn (user, 2026-11-10).
   if (isLinkedinJobUrl(url)) {
     deps.status?.('LinkedIn: using the LinkedIn Easy Apply applier');
-    return runLinkedinApply(deps, opts.mode, { title: opts.job.title, company: opts.job.company }, url);
+    const r = await runLinkedinApply(deps, opts.mode, { title: opts.job.title, company: opts.job.company }, url);
+    // A company-site job (user, 2026-11-11; it used to be skipped): the LinkedIn applier opened the company's apply
+    // page in this tab. Pick that site's own applier (Lever, Workday, Zoho…) by its address, else the general flow
+    // applies there. In a dry run the tab stays on LinkedIn and the general flow only reports what it would do.
+    if (r.result !== 'external') return r;
+    const now = await deps.currentUrl().catch(() => url);
+    if (now && now !== url && !isLinkedinJobUrl(now)) {
+      deps.status?.(`LinkedIn: company-site job; applying on ${hostOf(now)}`);
+      return platformApplier(deps, opts);
+    }
+    // No company link read: the general flow presses LinkedIn's "Apply" and follows the new tab it opens.
   }
   // Naukri's own Apply and its chatbot questions: its own applier. Company-site jobs go the general way.
   if (isNaukriJobUrl(url)) {
