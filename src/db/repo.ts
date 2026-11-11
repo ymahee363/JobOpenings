@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Attempt } from '../shared/auto-apply/config';
+import { BUILT_AT } from '../shared/build-info';
 import type { Job, JobStatus, LogEntry, ParsedJob, Status } from '../shared/types';
 import { safeExternalUrl, safeJobPageUrl } from '../shared/url';
 import type { BoardDB } from './db';
@@ -100,11 +101,17 @@ export async function log(db: BoardDB, level: LogEntry['level'], message: string
 export async function addAttempt(db: BoardDB, a: Omit<Attempt, 'id'>): Promise<number> {
   // Copy: Dexie writes the new key onto the object it is given, which would break reusing it.
   const { id: _id, ...row } = a as Attempt;
-  return db.attempts.add(row);
+  // The build that made the attempt, so the auto fixer can tell a failure after a fix from one before it (2026-11-11).
+  return db.attempts.add({ ...row, build: row.build ?? (BUILT_AT || undefined) });
 }
 
 export async function finishAttempt(db: BoardDB, id: number, patch: Partial<Omit<Attempt, 'id' | 'jobId'>>): Promise<void> {
   await db.attempts.update(id, patch);
+}
+
+/** Every attempt still marked pending, of any age (uses the `outcome` index; 2026-11-11). */
+export async function pendingAttempts(db: BoardDB): Promise<Attempt[]> {
+  return db.attempts.where('outcome').equals('pending').toArray();
 }
 
 /** Attempts newest first, optionally only those started since `from`. */

@@ -19,3 +19,6 @@ qa/harness.js
 
 # Your career-site account for the account agent (ACCOUNT_EMAIL / ACCOUNT_PASSWORD): never committed
 .env
+
+# Auto fixer: one cycle at a time
+qa/auto-fixer/.lock

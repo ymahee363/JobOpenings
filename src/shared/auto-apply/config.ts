@@ -202,6 +202,8 @@ export interface Attempt {
   clicked: boolean;
   outcome: AttemptOutcome;
   reason: string;
+  /** `BUILT_AT` of the build that made the attempt (from 2026-11-11; older attempts have none). */
+  build?: number;
 }
 
 /**

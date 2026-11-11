@@ -1,6 +1,6 @@
 import { getDb } from '../db/db';
 import {
-  addAttempt, ATTEMPT_RETENTION_MS, finishAttempt, listAttempts, log, markAppliedFromSite, purge, setStatus, upsertJobs,
+  addAttempt, ATTEMPT_RETENTION_MS, finishAttempt, listAttempts, pendingAttempts, log, markAppliedFromSite, purge, setStatus, upsertJobs,
 } from '../db/repo';
 import { runAiApply, type FlowDeps, type FlowMode } from '../shared/ai-apply/flow';
 import { backendClient, backendHealth } from '../shared/ai-apply/llm';
@@ -529,7 +529,8 @@ async function agentWatchdog(): Promise<void> {
 /** Attempts left pending by a closed browser or a stopped worker become failures, retried later (AR-14). */
 async function recoverAttempts(): Promise<void> {
   const now = Date.now();
-  for (const a of staleAttempts(await listAttempts(db, now - 2 * 86_400_000), now)) {
+  // Every age: a sweep over the last 2 days only left older ones pending forever (2026-11-11).
+  for (const a of staleAttempts(await pendingAttempts(db), now)) {
     await finishAttempt(db, a.id!, { finishedAt: now, outcome: 'failed', reason: 'interrupted (browser closed or extension restarted)' });
     await log(db, 'warn', `Auto-apply attempt for ${a.title} at ${a.company} was interrupted; it will be re-checked later`);
   }

@@ -37,13 +37,18 @@ if (existsSync('.env')) {
 }
 for (const size of [16, 48, 128]) writeFileSync(`${outdir}/icon-${size}.png`, iconPng(size));
 
+// One stamp for the whole build, also written to dist/build-stamp.json: attempts carry it, and the auto fixer records
+// it as the build that shipped a fix (regressions are failures on a later build; 2026-11-11).
+const BUILT_AT = Date.now();
+writeFileSync(`${outdir}/build-stamp.json`, JSON.stringify({ builtAt: BUILT_AT }));
+
 const common = {
   bundle: true,
   target: 'chrome116',
   sourcemap: watch ? 'inline' : false,
   minify: !watch,
   legalComments: 'none',
-  define: { 'process.env.NODE_ENV': JSON.stringify(watch ? 'development' : 'production'), __BUILT_AT__: String(Date.now()) },
+  define: { 'process.env.NODE_ENV': JSON.stringify(watch ? 'development' : 'production'), __BUILT_AT__: String(BUILT_AT) },
   logLevel: 'info',
 };
 

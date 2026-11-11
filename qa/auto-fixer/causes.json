@@ -1,0 +1,74 @@
+{
+  "_doc": "The auto fixer's cause catalogue (machine-read by scripts/auto-fixer/prep.mjs). signature: a case-insensitive regex over an attempt's reason. status: fixed (verified live) | fixed-unverified (code + test, last step not seen live) | watching | not-fixable. fixedAt: ms of the fix commit; a failure matching a fixed cause from a build made after fixedAt is a regression.",
+  "causes": [
+    {
+      "id": "C1",
+      "title": "Indeed expired job reported as \"no application step found (unknown)\"",
+      "signature": "Indeed: no application step found \\((unknown|job)\\)",
+      "status": "fixed",
+      "fixedAt": 1794411283000,
+      "fix": "src/content/ats/indeed.ts (inState closed), src/shared/ats/indeed-flow.ts; commit 49ac167",
+      "test": "tests/indeed-applier.test.ts",
+      "notes": "Verified live on two expired postings (alert \"This job has expired on Indeed\")."
+    },
+    {
+      "id": "C2",
+      "title": "Apply buttons on other jobs' cards hide the posting's own Apply",
+      "signature": "no application form or Apply button found",
+      "status": "fixed-unverified",
+      "fixedAt": 1794411283000,
+      "fix": "src/shared/ai-apply/apply-button.ts (isOtherJobCard), src/content/form-engine.ts (ancestorNames); commit 49ac167",
+      "test": "tests/apply-button.test.ts \"Apply controls on other jobs' cards\"",
+      "notes": "Live on foundit: the posting's Apply Now is now the clear winner, but it was not pressed (foundit may apply in one click). iimjobs IDfy not reproduced."
+    },
+    {
+      "id": "C3",
+      "title": "LinkedIn stuck on a step with no labels",
+      "signature": "LinkedIn: stuck on \"\\d* ?Apply to .*\\| \\d+ notifications",
+      "status": "watching",
+      "notes": "Live repro blocked: Claude in Chrome had no permission for linkedin.com."
+    },
+    {
+      "id": "C4",
+      "title": "General flow reads a chat widget as the form and finds no Next",
+      "signature": "page 1: no Next or Submit button",
+      "status": "watching",
+      "notes": "Pixxel Space careers site chat (\"Type your message here\"); Nielsen Sports. Not reproduced."
+    },
+    {
+      "id": "C5",
+      "title": "Workday step fill timed out",
+      "signature": "no answer from the page after 90 s \\(WD_FILL_STEP\\)",
+      "status": "watching"
+    },
+    {
+      "id": "C6",
+      "title": "CAPTCHA before Apply",
+      "signature": "captcha",
+      "status": "not-fixable",
+      "notes": "Software must not solve captchas (Keka, Habuild)."
+    },
+    {
+      "id": "C7",
+      "title": "Sign-in required on the employer's site",
+      "signature": "sign[- ]?in|log ?in required|account wall|create (an )?account",
+      "status": "not-fixable",
+      "notes": "Deloitte USI, a Workday site. The person signs in once; the board lists them under \"Sign in once\"."
+    },
+    {
+      "id": "C8",
+      "title": "Question asks for a video recording",
+      "signature": "loom|video (link|recording|introduction)",
+      "status": "not-fixable",
+      "notes": "Indeed, CLANX."
+    },
+    {
+      "id": "C9",
+      "title": "CGPA question with no CGPA in the profile",
+      "signature": "cgpa|\\bgpa\\b|grade point",
+      "status": "fixed-unverified",
+      "notes": "2026-11-11: CGPA added to the profile; answered only on required fields (src/shared/ai-apply/flow.ts, tests/gpa.test.ts). Not yet committed.",
+      "fixBuild": 1794414878691
+    }
+  ]
+}

@@ -9,7 +9,8 @@
     "watch": "node scripts/build.mjs --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "check": "npm run typecheck && npm test && npm run build"
+    "check": "npm run typecheck && npm test && npm run build",
+    "fixer:prep": "node scripts/auto-fixer/prep.mjs"
   },
   "dependencies": {
     "dexie": "^4.0.10",
