@@ -37,6 +37,7 @@ export async function runIndeedApply(deps: FlowDeps, mode: FlowMode, job: { titl
   let s = await state();
   if (s.page === 'submitted') return report('applied', { reason: 'Indeed shows the application as sent' });
   if (s.page === 'external') return report('external', { reason: 'Indeed: this job applies on the company site' });
+  if (s.page === 'closed') return report('closed', { reason: 'Indeed: this job has expired (removed from the listing)' });
   if (s.page === 'job') {
     if (mode === 'preview') return report('can_apply', { reason: 'dry run: Indeed Apply job; would press "Apply now" and answer each step from your profile' });
     const stop = await deps.mayClick();

@@ -1,0 +1,17 @@
+{
+  "lastRunAt": 1794411600000,
+  "lastLogFile": "000102.log",
+  "seenSignatures": {
+    "indeed-expired-as-unknown": 6,
+    "apply-in-other-job-card": 3,
+    "linkedin-stuck-no-labels": 2,
+    "linkedin-this-field-required": 1,
+    "general-chat-widget-no-next": 1,
+    "general-no-next-page-1": 1,
+    "workday-fill-step-timeout": 1,
+    "linkedin-cgpa-unknown": 1,
+    "indeed-video-question": 1,
+    "keka-captcha": 1,
+    "sign-in-required": 2
+  }
+}

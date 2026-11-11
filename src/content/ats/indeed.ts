@@ -15,7 +15,7 @@
  */
 
 export interface InState {
-  page: 'job' | 'external' | 'step' | 'review' | 'submitted' | 'unknown';
+  page: 'job' | 'external' | 'closed' | 'step' | 'review' | 'submitted' | 'unknown';
   /** The SmartApply step, e.g. "questions-module/questions/1"; "" off SmartApply. */
   step: string;
   errors: string[];
@@ -43,6 +43,9 @@ export function inState(): InState {
     return { ...base, page: 'unknown' };
   }
   if (visible(applyNow())) return { ...base, page: 'job' };
+  // An expired job: no Apply button, an alert "This job has expired on Indeed" (2026-11-11, jk=fddbd84641b96aed and
+  // jk=53949a43a0d8b6a3 were reported as "no application step found (unknown)").
+  if ([...document.querySelectorAll<HTMLElement>('[data-testid="alert"], [role="alert"], main, body')].some((e) => visible(e) && /this job has expired on indeed|this job is no longer available/i.test(text(e).slice(0, 3000)))) return { ...base, page: 'closed' };
   if (button(/apply on company site/i) || [...document.querySelectorAll('a')].some((a) => visible(a) && /apply on company site/i.test(text(a)))) return { ...base, page: 'external' };
   return { ...base, page: 'unknown' };
 }

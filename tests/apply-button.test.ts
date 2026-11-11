@@ -235,3 +235,22 @@ describe('runAiApply finds its way to the form', () => {
     expect(r.result).toBe('applied');
   });
 });
+
+import { isOtherJobCard } from '../src/shared/ai-apply/apply-button';
+describe('Apply controls on other jobs\' cards', () => {
+  // foundit, 2026-11-11 (Lenovo 69709714): the posting's Apply Now beside similar-job cards with "Quick Apply".
+  const main = { text: 'Apply Now', attrs: 'applyBtn button button--primary applyJob__btn', container: 'jobMainInfoCard__applyButton jobMainInfoCard' };
+  const card = (t: string) => ({ text: t, attrs: 'applyBtn button button--secondary applyJob', container: 'jobCard__actions jobCard__actions--mobile jobCard' });
+  it('ignores Apply buttons inside another job\'s card, so the posting\'s own Apply is a clear winner', () => {
+    const cands = [main, card('Quick Apply'), card('Apply Now'), card('Apply Now')];
+    expect(pickClearApplyCandidate(cands)).toBe(0);
+    expect(scoreApplyCandidate(card('Quick Apply'))).toBe(-1);
+  });
+  it('knows list cards from the posting\'s own card', () => {
+    expect(isOtherJobCard('jobCard__actions')).toBe(true);
+    expect(isOtherJobCard('job-card-container__footer')).toBe(true);
+    expect(isOtherJobCard('similar-jobs-section')).toBe(true);
+    expect(isOtherJobCard('jobMainInfoCard__applyButton jobMainInfoCard')).toBe(false);
+    expect(isOtherJobCard('')).toBe(false);
+  });
+});

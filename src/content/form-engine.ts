@@ -5994,6 +5994,16 @@ function findApplyButton(): HTMLElement | null {
 const APPLY_CANDIDATE_SELECTOR =
   "button, a[href], [role='button'], [role='link'], input[type='button'], input[type='submit']";
 
+/** Class names, ids and data-testids of up to 6 ancestors, nearest first (for isOtherJobCard, 2026-11-11). */
+function ancestorNames(el: HTMLElement): string {
+  const out: string[] = [];
+  let a = el.parentElement;
+  for (let i = 0; a && i < 6; i += 1, a = a.parentElement) {
+    out.push(a.id, typeof a.className === "string" ? a.className : "", a.getAttribute("data-testid") || "");
+  }
+  return out.filter(Boolean).join(" ").replace(/\s+/g, " ").slice(0, 600);
+}
+
 function applyCandidateDesc(el: HTMLElement): ApplyCandidate {
   const attr = (n: string) => el.getAttribute(n) || "";
   const href = el instanceof HTMLAnchorElement ? el.href : (el.closest("a[href]") as HTMLAnchorElement | null)?.href || "";
@@ -6001,7 +6011,8 @@ function applyCandidateDesc(el: HTMLElement): ApplyCandidate {
     text: (el.innerText || (el as HTMLInputElement).value || "").replace(/\s+/g, " ").trim().slice(0, 120),
     label: `${attr("aria-label")} ${attr("title")}`.trim(),
     attrs: [el.id, typeof el.className === "string" ? el.className : "", attr("name"), attr("data-automation-id"), attr("data-testid"), attr("data-ph-at-id")].join(" "),
-    href
+    href,
+    container: ancestorNames(el)
   };
 }
 

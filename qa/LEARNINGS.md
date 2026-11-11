@@ -65,6 +65,10 @@ What each QA run learned about the sites and application forms. Read before test
 ### Indeed / Cutshort / foundit
 
 - No one-click applier: AI apply only.
+- Indeed (2026-11-11): an expired posting keeps its page but has no Apply button, only `[data-testid="alert"]`
+  "This job has expired on Indeed"; it is now skipped as closed.
+- foundit (2026-11-11): job pages list similar jobs (`.jobCard__actions`) with their own "Quick Apply" / "Apply Now";
+  the posting's own button is `#applyBtn.jobMainInfoCard__applyButton`. Other jobs' cards are ignored by the Apply finder.
 
 ### LinkedIn
 

@@ -26,6 +26,19 @@ export interface ApplyCandidate {
   attrs?: string;
   /** A link's href, resolved. */
   href?: string;
+  /** Class tokens, ids and data-testids of the control's ancestors (nearest first), to tell another job's card apart. */
+  container?: string;
+}
+
+/**
+ * A control inside another job's card ("Similar jobs", "Recommended", a job list beside the posting) applies to that
+ * other job. foundit (2026-11-11, Lenovo 69709714): the posting's "Apply Now" sat beside five similar-job cards
+ * (`jobCard__actions`) with "Quick Apply" / "Apply Now", so no clear winner was found and the run ended with
+ * "no application form or Apply button found". The posting's own card (`jobMainInfoCard`) is not a list card.
+ */
+const OTHER_JOB_CARD = /(^|\s)(job-?cards?|job-?card-?container|job-?tiles?|job-?list-?item|similar|recommend|related-?jobs?|more-?jobs|other-?jobs|people-?also)/i;
+export function isOtherJobCard(container: string | undefined): boolean {
+  return OTHER_JOB_CARD.test(container ?? '');
 }
 
 /** A candidate at or above this score is the Apply control without asking the AI. */
@@ -67,6 +80,7 @@ export function scoreApplyCandidate(c: ApplyCandidate): number {
   if (/^(mailto|tel|javascript:void)/i.test(href) && !/apply/.test(shown)) return -1;
   // A referral link ("Refer" next to Apply on iCIMS career sites, N-able 2026-11-06) never applies.
   if (/referral|\/refer\b/i.test(href)) return -1;
+  if (isOtherJobCard(c.container)) return -1;
 
   let score = 0;
   const words = shown.split(' ').filter(Boolean).length;
