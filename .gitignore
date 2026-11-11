@@ -22,3 +22,5 @@ qa/harness.js
 
 # Auto fixer: one cycle at a time
 qa/auto-fixer/.lock
+backend/llm-calls.jsonl
+qa/ai-eval/

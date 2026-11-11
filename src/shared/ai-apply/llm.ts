@@ -22,6 +22,8 @@ export interface AnswerRequest {
 
 export const DEFAULT_INSTRUCTION = 'Apply for this job using my profile. Answer truthfully and do not invent experience.';
 
+/** One AI call's deadline (the backend's own provider timeout is 60 s, plus its retries). */
+export const REQUEST_TIMEOUT_MS = 150_000;
 /** Fields per request: a long form goes in several calls so one slow or rate-limited call fails less. */
 const BATCH = 25;
 /** Waits before the 2nd and 3rd try of a failed AI call. */
@@ -113,8 +115,10 @@ export function backendClient(backend: AiBackend, fetchOrOpts: typeof fetch | Cl
     for (let i = 0; i < req.fields.length; i += BATCH) {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (backend.accessKey) headers['X-App-Key'] = backend.accessKey;
+      // A deadline per call: a backend that never answers must not hold the application (and its tab) forever.
       const call = () => fetchFn(`${backend.url.replace(/\/+$/, '')}/answer`, {
         method: 'POST', headers, body: JSON.stringify({ ...req, fields: req.fields.slice(i, i + BATCH) }),
+        signal: typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(REQUEST_TIMEOUT_MS) : undefined,
       });
       // The providers are sometimes briefly overloaded (Gemini 503 "high demand" became a backend 502 on 2026-11-05,
       // while the same call worked seconds later): retry a server error or a network failure before giving up, so

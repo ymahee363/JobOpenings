@@ -42,6 +42,9 @@ import type { Answer, CandidateProfile, FormData, FormField, FrameFormData } fro
 
 export type FlowMode = 'preview' | 'fill' | 'submit';
 
+/** The least confidence an AI answer needs to be remembered for later forms. */
+export const MEMORY_MIN_CONFIDENCE = 0.75;
+
 /** Any reply from the form engine; it answers plain objects. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type EngineReply = any;
@@ -418,7 +421,10 @@ export async function buildAnswers(
     if (!n.ok) return { ...picked, answer: 'NEEDS_USER_INPUT', needs_user_input: true, confidence: 0, source: `${picked.source}:${n.reason}` };
     return n.value !== picked.answer ? { ...picked, answer: n.value } : picked;
   }).filter((a): a is Answer => !!a);
-  const learned = llm.filter((a) => !a.needs_user_input && a.answer && a.answer !== 'NEEDS_USER_INPUT')
+  // Only confident, clean AI answers are remembered: memory answers are reused on later forms without asking the AI
+  // again, so a weak guess remembered once would repeat everywhere (memory poisoning; 2026-11-11).
+  const learned = llm.filter((a) => !a.needs_user_input && a.answer && a.answer !== 'NEEDS_USER_INPUT'
+    && (a.confidence ?? 0) >= MEMORY_MIN_CONFIDENCE && !String(a.source ?? '').includes(':'))
     .map((a) => ({ label: data.fields.find((f) => f.id === a.field_id)?.label ?? '', answer: a.answer }));
   return { answers, memory: rememberAnswers(deps.memory, learned, deps.now()), counts };
 }

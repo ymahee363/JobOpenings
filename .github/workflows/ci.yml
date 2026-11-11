@@ -21,6 +21,13 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      # The AI answer guards (redaction, output contract, CORS), with a fake model: no API keys needed.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r backend/requirements.txt
+      - run: python -m unittest discover -s tests -v
+        working-directory: backend
       - uses: actions/upload-artifact@v4
         with:
           name: extension
